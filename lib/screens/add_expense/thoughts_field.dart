@@ -91,9 +91,7 @@ class _ThoughtsFieldState extends State<ThoughtsField> {
             child: CupertinoTextField.borderless(
               controller: context.read<ExpenseDraft>().thoughts,
               focusNode: _focus,
-              placeholder:
-                  'How did shopping go today? Anything worth remembering — '
-                  'a good price, a new shop, something you skipped…',
+              placeholder: 'How did shopping go today?',
               padding: EdgeInsets.zero,
               maxLines: null,
               expands: true,

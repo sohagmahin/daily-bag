@@ -2,6 +2,12 @@
 
 A new Flutter project.
 
+## TODO
+
+- [ ] Add Bangla language
+- [ ] Add dark theme
+- [ ] Export to Excel
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
