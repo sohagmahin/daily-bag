@@ -8,15 +8,22 @@ class Expense {
   final double amount;
 }
 
-/// One day's "little note": the items spent on that date.
+/// One day's "Bazar Diary": the items bought that date and the shopper's
+/// free-form "Bazar thoughts".
 @immutable
 class DayNote {
-  DayNote(this.date, List<Expense> items) : items = List.unmodifiable(items);
+  DayNote(this.date, List<Expense> items, {this.thoughts = ''})
+    : items = List.unmodifiable(items);
 
   final DateTime date;
   final List<Expense> items;
+  final String thoughts;
 
   double get total => items.fold(0, (sum, e) => sum + e.amount);
+  bool get hasThoughts => thoughts.trim().isNotEmpty;
+
+  /// Nothing worth keeping: the day can be dropped.
+  bool get isEmpty => items.isEmpty && !hasThoughts;
 }
 
 @immutable

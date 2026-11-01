@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="-44 -44 288 288">
+<defs>
+<linearGradient id="bg" x1="4" y1="4" x2="196" y2="196" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6FD3FF"/><stop offset="0.55" stop-color="#0A84FF"/><stop offset="1" stop-color="#5856D6"/></linearGradient>
+<linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.97"/><stop offset="1" stop-color="#DCEBFF" stop-opacity="0.92"/></linearGradient>
+<linearGradient id="flap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#C9DEFF"/></linearGradient>
+<radialGradient id="coin" cx="0.38" cy="0.32" r="0.75"><stop offset="0" stop-color="#FFF1B0"/><stop offset="0.55" stop-color="#FFC93C"/><stop offset="1" stop-color="#F29F05"/></radialGradient>
+<linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<rect x="-44" y="-44" width="288" height="288" fill="url(#bg)"/>
+<path d="M4 4 H196 V74 Q100 100 4 74 Z" fill="url(#shine)"/>
+</svg>

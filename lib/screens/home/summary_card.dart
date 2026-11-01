@@ -37,8 +37,10 @@ class SummaryCard extends StatelessWidget {
     required this.badgeGlyph,
     required this.expanded,
     required this.onExpand,
-    required this.onOpen,
     required this.semanticLabel,
+    this.onLongPress,
+    this.onBadgeTap,
+    this.badgeLabel,
   });
 
   final String title;
@@ -49,8 +51,14 @@ class SummaryCard extends StatelessWidget {
   final LineGlyph badgeGlyph;
   final bool expanded;
   final VoidCallback onExpand;
-  final VoidCallback? onOpen;
   final String semanticLabel;
+
+  /// Held for 500ms: shows the day's Bazar thoughts.
+  final VoidCallback? onLongPress;
+
+  /// The open card's badge; null leaves it decorative.
+  final VoidCallback? onBadgeTap;
+  final String? badgeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -66,10 +74,12 @@ class SummaryCard extends StatelessWidget {
     final ct = t.clamp(0.0, 1.0);
     final style = GlassStyle.lerp(Glass.card, Glass.cardRaised, t);
 
+    // The right inset is 8px short of the card's 18 so the badge's 44px hit
+    // area can reach past the content edge (the design's margin-right: -8px).
     final header = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.fromLTRB(18, 0, 10, 0),
       child: SizedBox(
-        height: lerpDouble(56, 58, t),
+        height: lerpDouble(52, 54, t),
         child: Row(
           children: [
             Expanded(
@@ -107,30 +117,46 @@ class SummaryCard extends StatelessWidget {
               children: [
                 Opacity(
                   opacity: 1 - ct,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        formatTaka(total),
-                        style: AppText.headline.copyWith(
-                          fontFeatures: AppText.tabular,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          formatTaka(total),
+                          style: AppText.headline.copyWith(
+                            fontFeatures: AppText.tabular,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      const LineIcon(
-                        LineGlyph.chevronRight,
-                        size: 14,
-                        strokeWidth: 2.6,
-                        color: AppColors.chevron,
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        const LineIcon(
+                          LineGlyph.chevronRight,
+                          size: 14,
+                          strokeWidth: 2.6,
+                          color: AppColors.chevron,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                Opacity(
-                  opacity: ct,
-                  child: Transform.scale(
-                    scale: 0.5 + 0.5 * t,
-                    child: _Badge(glyph: badgeGlyph),
+                IgnorePointer(
+                  ignoring: !expanded,
+                  child: LiquidPressable(
+                    onTap: onBadgeTap,
+                    pressedScale: 0.86,
+                    semanticLabel: badgeLabel,
+                    child: SizedBox.square(
+                      dimension: 44,
+                      child: Center(
+                        child: Opacity(
+                          opacity: ct,
+                          child: Transform.scale(
+                            scale: 0.5 + 0.5 * t,
+                            child: _Badge(glyph: badgeGlyph),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -141,9 +167,10 @@ class SummaryCard extends StatelessWidget {
     );
 
     return LiquidPressable(
-      onTap: expanded ? onOpen : onExpand,
-      haptic: expanded ? HapticKind.light : HapticKind.selection,
-      pressedScale: 0.98,
+      onTap: expanded ? null : onExpand,
+      onLongPress: onLongPress,
+      haptic: HapticKind.selection,
+      pressedScale: 0.97,
       borderRadius: style.radius,
       semanticLabel: semanticLabel,
       selected: expanded,
@@ -265,7 +292,7 @@ class _LineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final row = SizedBox(
-      height: 30,
+      height: 27,
       child: Row(
         children: [
           Expanded(

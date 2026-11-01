@@ -57,6 +57,7 @@ class GlassScrim extends StatelessWidget {
     required this.progress,
     required this.color,
     this.blur = 0,
+    this.saturation = 1,
     this.onTap,
     this.semanticLabel,
   });
@@ -64,6 +65,7 @@ class GlassScrim extends StatelessWidget {
   final double progress;
   final Color color;
   final double blur;
+  final double saturation;
   final VoidCallback? onTap;
   final String? semanticLabel;
 
@@ -74,6 +76,7 @@ class GlassScrim extends StatelessWidget {
       radius: 0,
       color: color.withValues(alpha: color.a * t),
       blur: blur * t,
+      saturation: 1 + (saturation - 1) * t,
       borderWidth: 0,
     );
     return Semantics(

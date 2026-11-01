@@ -23,7 +23,7 @@ class LittleExpenseApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoApp(
-      title: 'Little Expense',
+      title: 'Daily Bag',
       debugShowCheckedModeBanner: false,
       theme: const CupertinoThemeData(
         brightness: Brightness.light,

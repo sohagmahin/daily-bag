@@ -29,6 +29,12 @@ abstract final class AppColors {
   static const sheetScrim = Color.fromRGBO(20, 24, 40, 0.28);
   static const menuScrim = Color.fromRGBO(238, 241, 247, 0.18);
   static const pickerScrim = Color.fromRGBO(238, 241, 247, 0.12);
+  static const thoughtsScrim = Color.fromRGBO(226, 231, 242, 0.45);
+
+  static const pillLabel = Color(0xFF3A3A3C);
+  static const quietFill = Color.fromRGBO(118, 118, 128, 0.10);
+  static const separatorSoft = Color.fromRGBO(60, 60, 67, 0.12);
+  static const destructive = Color(0xFFD70015);
 }
 
 abstract final class AppText {
@@ -285,6 +291,40 @@ abstract final class Glass {
         dy: 6,
         blur: 14,
         color: AppColors.accent.withValues(alpha: 0.35),
+      ),
+    ],
+  );
+
+  /// The lifted "Bazar thoughts" card shown on long press.
+  static final thoughtsCard = GlassStyle(
+    radius: 28,
+    color: const Color.fromRGBO(255, 255, 255, 0.78),
+    blur: 36,
+    saturation: 2,
+    borderColor: const Color.fromRGBO(255, 255, 255, 0.95),
+    shadows: [
+      _rim(1),
+      const CssShadow(
+        dy: 30,
+        blur: 60,
+        color: Color.fromRGBO(20, 30, 70, 0.22),
+      ),
+    ],
+  );
+
+  /// The action menu under the thoughts card.
+  static final contextMenu = GlassStyle(
+    radius: 22,
+    color: const Color.fromRGBO(255, 255, 255, 0.7),
+    blur: 30,
+    saturation: 2,
+    borderColor: const Color.fromRGBO(255, 255, 255, 0.9),
+    shadows: [
+      _rim(1),
+      const CssShadow(
+        dy: 18,
+        blur: 40,
+        color: Color.fromRGBO(20, 30, 70, 0.18),
       ),
     ],
   );

@@ -16,26 +16,36 @@ import '../../widgets/liquid_overlay_route.dart';
 import '../../widgets/liquid_pressable.dart';
 import '../date_picker/date_picker_popover.dart';
 import 'expense_row.dart';
+import 'thoughts_field.dart';
 
-/// "Little note": the sheet for adding items to a day, or editing a day's
-/// note when [ExpenseDraft.editing] is set. Pops with the saved date.
+/// "Bazar Diary": a day's items and thoughts. Starts empty for a new day,
+/// or filled from [ExpenseDraft.existing]. Pops with the saved date.
 class AddExpenseSheet extends StatefulWidget {
-  const AddExpenseSheet({super.key, required this.animation});
+  const AddExpenseSheet({
+    super.key,
+    required this.animation,
+    this.focusThoughts = false,
+  });
 
   final Animation<double> animation;
 
-  static Route<DateTime?> route({required DateTime date, DayNote? editing}) =>
-      LiquidOverlayRoute<DateTime?>(
-        curve: Motion.smooth,
-        builder: (context, animation) => ChangeNotifierProvider(
-          create: (_) => ExpenseDraft(
-            date: editing?.date ?? date,
-            items: editing?.items ?? const [],
-            editing: editing?.date,
-          ),
-          child: AddExpenseSheet(animation: animation),
-        ),
-      );
+  /// Opened from "Edit thoughts": lands in the thoughts field.
+  final bool focusThoughts;
+
+  static Route<DateTime?> route({
+    required DateTime date,
+    DayNote? existing,
+    bool focusThoughts = false,
+  }) => LiquidOverlayRoute<DateTime?>(
+    curve: Motion.smooth,
+    builder: (context, animation) => ChangeNotifierProvider(
+      create: (_) => ExpenseDraft(date: date, existing: existing),
+      child: AddExpenseSheet(
+        animation: animation,
+        focusThoughts: focusThoughts,
+      ),
+    ),
+  );
 
   @override
   State<AddExpenseSheet> createState() => _AddExpenseSheetState();
@@ -51,7 +61,20 @@ class _AddExpenseSheetState extends State<AddExpenseSheet>
   bool _pastThreshold = false;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.focusThoughts) widget.animation.addStatusListener(_onOpened);
+  }
+
+  void _onOpened(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    widget.animation.removeStatusListener(_onOpened);
+    if (mounted) context.read<ExpenseDraft>().thoughtsFocus.requestFocus();
+  }
+
+  @override
   void dispose() {
+    widget.animation.removeStatusListener(_onOpened);
     _drag.dispose();
     _rowsScroll.dispose();
     super.dispose();
@@ -116,7 +139,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet>
   void _save() {
     final draft = context.read<ExpenseDraft>();
     final saved = draft.commit(context.read<ExpenseStore>());
-    final changed = saved != null || draft.editing != null;
+    final changed = saved != null || draft.existing != null;
     Haptics.play(changed ? HapticKind.success : HapticKind.light);
     FocusScope.of(context).unfocus();
     Navigator.of(context).pop(saved);
@@ -167,7 +190,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet>
       scopesRoute: true,
       namesRoute: true,
       explicitChildNodes: true,
-      label: 'Little note',
+      label: 'Bazar Diary',
       child: LiquidBox(
         style: Glass.sheet,
         padding: const EdgeInsets.only(top: 8, bottom: 26),
@@ -257,7 +280,7 @@ class _Header extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Little note', style: AppText.title1),
+              const Text('Bazar Diary', style: AppText.title1),
               const SizedBox(height: 2),
               _Swap(
                 value: date,
@@ -386,6 +409,8 @@ class _Rows extends StatelessWidget {
           alignment: Alignment.centerRight,
           child: _AddMoreButton(onTap: onAddRow),
         ),
+        const SizedBox(height: 18),
+        const ThoughtsField(),
       ],
     );
   }
@@ -489,12 +514,17 @@ class _TotalLine extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
       children: [
-        Text(
-          draft.totalLabel,
-          style: AppText.subhead.copyWith(
-            color: AppColors.secondaryLabelStrong,
+        Flexible(
+          child: Text(
+            draft.totalLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.subhead.copyWith(
+              color: AppColors.secondaryLabelStrong,
+            ),
           ),
         ),
+        const SizedBox(width: 12),
         TweenAnimationBuilder<double>(
           tween: Tween(end: draft.total),
           duration: Motion.snappy.duration,

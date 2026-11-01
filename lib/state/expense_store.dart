@@ -6,20 +6,23 @@ import '../app/format.dart';
 import '../data/expense_database.dart';
 import '../models/expense.dart';
 
-/// App-wide expense state: every day's note, how they are grouped, and
+/// App-wide state: every day's Bazar Diary, how they are grouped, and
 /// which day or month is open.
 ///
 /// Reads are served from memory; when a [database] is attached, every
 /// change is also written to it, in order, in the background.
 class ExpenseStore extends ChangeNotifier {
   ExpenseStore({
-    Map<DateTime, List<Expense>> days = const {},
+    List<DayNote> days = const [],
     DateTime? selectedDay,
     GroupMode mode = GroupMode.day,
     ExpenseDatabase? database,
   }) : _mode = mode,
        _database = database {
-    days.forEach((date, items) => _days[dateOnly(date)] = List.of(items));
+    for (final d in days) {
+      final date = dateOnly(d.date);
+      _days[date] = DayNote(date, d.items, thoughts: d.thoughts);
+    }
     _selectedDay = selectedDay != null
         ? dateOnly(selectedDay)
         : (_days.isEmpty ? null : _days.lastKey());
@@ -36,39 +39,46 @@ class ExpenseStore extends ChangeNotifier {
   /// The data shown on the design canvas, in memory only (tests use it).
   factory ExpenseStore.demo() => ExpenseStore(
     selectedDay: DateTime(2026, 2, 20),
-    days: {
-      DateTime(2026, 2, 12): const [
+    days: [
+      DayNote(DateTime(2026, 2, 12), const [
         Expense(name: 'Rice', amount: 600),
         Expense(name: 'Soybean oil', amount: 420),
         Expense(name: 'Eggs', amount: 280),
         Expense(name: 'Onion', amount: 240),
-      ],
-      DateTime(2026, 2, 13): const [
+      ]),
+      DayNote(DateTime(2026, 2, 13), const [
         Expense(name: 'Chicken', amount: 650),
         Expense(name: 'Milk', amount: 260),
         Expense(name: 'Bread', amount: 150),
-      ],
-      DateTime(2026, 2, 20): const [
-        Expense(name: 'Potato', amount: 200),
-        Expense(name: 'Beef', amount: 820),
-        Expense(name: 'Jira', amount: 200),
-      ],
-      DateTime(2026, 2, 26): const [
+      ]),
+      DayNote(
+        DateTime(2026, 2, 20),
+        const [
+          Expense(name: 'Potato', amount: 200),
+          Expense(name: 'Beef', amount: 820),
+          Expense(name: 'Jira', amount: 200),
+        ],
+        thoughts:
+            'Beef was fresh today, so I took a bit extra for the weekend. '
+            'Ran out of jira at home — picked up a small pack. '
+            'Next time, bring my own bag.',
+      ),
+      DayNote(DateTime(2026, 2, 26), const [
         Expense(name: 'Fish', amount: 520),
         Expense(name: 'Tomato', amount: 180),
-      ],
-      DateTime(2026, 3, 2): const [
+      ]),
+      DayNote(DateTime(2026, 3, 2), const [
         Expense(name: 'Rice', amount: 450),
         Expense(name: 'Lentils', amount: 160),
         Expense(name: 'Vegetables', amount: 340),
-      ],
-    },
+      ]),
+    ],
   );
 
   static const chartLength = 5;
 
   final ExpenseDatabase? _database;
-  final _days = SplayTreeMap<DateTime, List<Expense>>();
+  final _days = SplayTreeMap<DateTime, DayNote>();
   GroupMode _mode;
   DateTime? _selectedDay;
   DateTime? _selectedMonth;
@@ -90,36 +100,34 @@ class ExpenseStore extends ChangeNotifier {
     return _mode == GroupMode.day ? monthTitle(month) : '${month.year}';
   }
 
-  List<DayNote> get days => [
-    for (final e in _days.entries) DayNote(e.key, e.value),
-  ];
+  List<DayNote> get days => _days.values.toList();
+
+  /// Everything ever spent: the chart header's "Total".
+  double get grandTotal => _days.values.fold(0, (sum, d) => sum + d.total);
 
   List<DayNote> get daysInFocusedMonth {
     final month = focusedMonth;
     if (month == null) return const [];
     return [
-      for (final e in _days.entries)
-        if (isSameMonth(e.key, month)) DayNote(e.key, e.value),
+      for (final d in _days.values)
+        if (isSameMonth(d.date, month)) d,
     ];
   }
 
   List<MonthSummary> get months {
     final grouped = SplayTreeMap<DateTime, List<DayNote>>();
-    for (final day in days) {
+    for (final day in _days.values) {
       grouped.putIfAbsent(monthOf(day.date), () => []).add(day);
     }
     return [for (final e in grouped.entries) MonthSummary(e.key, e.value)];
   }
 
-  DayNote? dayFor(DateTime date) {
-    final items = _days[dateOnly(date)];
-    return items == null ? null : DayNote(dateOnly(date), items);
-  }
+  DayNote? dayFor(DateTime date) => _days[dateOnly(date)];
 
   /// The last five days (or months) with spending, oldest first.
   List<ChartBar> get chartBars {
     if (_mode == GroupMode.month) {
-      final all = months;
+      final all = months.where((m) => m.total > 0).toList();
       final focused = focusedMonth;
       return [
         for (final m in all.skip(_tailStart(all.length)))
@@ -132,7 +140,8 @@ class ExpenseStore extends ChangeNotifier {
           ),
       ];
     }
-    final all = days;
+    // A day kept only for its thoughts has nothing to chart.
+    final all = _days.values.where((d) => d.total > 0).toList();
     return [
       for (final d in all.skip(_tailStart(all.length)))
         ChartBar(
@@ -173,7 +182,7 @@ class ExpenseStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Moves the day list to the previous/next month that has spending.
+  /// Moves the day list to the previous/next month that has entries.
   /// Returns false when there is nowhere to go.
   bool shiftMonth(int delta) {
     final current = focusedMonth;
@@ -189,41 +198,69 @@ class ExpenseStore extends ChangeNotifier {
     return true;
   }
 
-  void addItems(DateTime date, List<Expense> items) {
-    if (items.isEmpty) return;
-    final day = dateOnly(date);
-    _days.putIfAbsent(day, () => []).addAll(items);
-    _selectedDay = day;
-    _selectedMonth = monthOf(day);
-    notifyListeners();
-    _saveDays({day});
-  }
-
-  /// Saves an edited note. It may have moved to another [date]; an empty
-  /// list deletes it.
-  void replaceDay(DateTime original, DateTime date, List<Expense> items) {
-    final from = dateOnly(original);
+  /// Saves a Bazar Diary entry and opens its day.
+  ///
+  /// [original] is the day being edited, if any; it is replaced. Whatever
+  /// already sits on [date] (when moving or adding) is kept, with the new
+  /// items after it. A day left with nothing in it is removed.
+  void saveDay({
+    DateTime? original,
+    required DateTime date,
+    required List<Expense> items,
+    String thoughts = '',
+  }) {
     final to = dateOnly(date);
-    _days.remove(from);
-    if (items.isNotEmpty) {
-      _days.putIfAbsent(to, () => []).addAll(items);
+    final from = original == null ? null : dateOnly(original);
+    if (from != null) _days.remove(from);
+
+    final existing = _days[to];
+    final merged = DayNote(
+      to,
+      [...?existing?.items, ...items],
+      thoughts: [
+        if (existing?.hasThoughts ?? false) existing!.thoughts.trim(),
+        if (thoughts.trim().isNotEmpty) thoughts.trim(),
+      ].join('\n\n'),
+    );
+    if (merged.isEmpty) {
+      _days.remove(to);
+    } else {
+      _days[to] = merged;
+    }
+
+    if (_days.containsKey(to)) {
       _selectedDay = to;
-    } else if (_selectedDay == from) {
+    } else if (_selectedDay == from || _selectedDay == to) {
       _selectedDay = _days.isEmpty ? null : _days.lastKey();
     }
     if (_selectedDay != null) _selectedMonth = monthOf(_selectedDay!);
     notifyListeners();
-    _saveDays({from, to});
+    _saveDays({?from, to});
+  }
+
+  /// Replaces one day's thoughts in place; empty text deletes them.
+  void setThoughts(DateTime date, String thoughts) {
+    final day = _days[dateOnly(date)];
+    if (day == null) return;
+    final updated = DayNote(day.date, day.items, thoughts: thoughts.trim());
+    if (updated.isEmpty) {
+      _days.remove(day.date);
+      if (_selectedDay == day.date) {
+        _selectedDay = _days.isEmpty ? null : _days.lastKey();
+      }
+    } else {
+      _days[day.date] = updated;
+    }
+    notifyListeners();
+    _saveDays({day.date});
   }
 
   /// Completes once every change made so far has been written.
   Future<void> flush() => _writes;
 
   void _saveDays(Set<DateTime> days) {
-    // Snapshot now; memory may change again before the write runs.
-    final snapshot = {
-      for (final d in days) d: List<Expense>.of(_days[d] ?? const []),
-    };
+    // Notes are immutable, so this is a snapshot of right now.
+    final snapshot = {for (final d in days) d: _days[d]};
     _persist((db) => db.writeDays(snapshot));
   }
 
@@ -239,8 +276,8 @@ class ExpenseStore extends ChangeNotifier {
           FlutterErrorDetails(
             exception: error,
             stack: stack,
-            library: 'little_expense',
-            context: ErrorDescription('while saving expenses'),
+            library: 'daily_bag',
+            context: ErrorDescription('while saving the Bazar Diary'),
           ),
         );
       }

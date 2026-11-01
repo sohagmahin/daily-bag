@@ -6,13 +6,16 @@ import '../app/motion.dart';
 
 /// Touch feedback in the Liquid Glass manner: the control sinks under the
 /// finger, leans a little toward it, lights up where it was touched, and
-/// springs back with the release velocity. Fires a haptic on tap.
+/// springs back with the release velocity. Fires a haptic on tap, and a
+/// firmer one when a long press lands.
 class LiquidPressable extends StatefulWidget {
   const LiquidPressable({
     super.key,
     required this.child,
     required this.onTap,
+    this.onLongPress,
     this.haptic = HapticKind.light,
+    this.longPressHaptic = HapticKind.medium,
     this.pressedScale = 0.96,
     this.borderRadius,
     this.semanticLabel,
@@ -21,7 +24,11 @@ class LiquidPressable extends StatefulWidget {
 
   final Widget child;
   final VoidCallback? onTap;
+
+  /// Fires after the platform long-press delay (500ms), like the design.
+  final VoidCallback? onLongPress;
   final HapticKind haptic;
+  final HapticKind longPressHaptic;
   final double pressedScale;
 
   /// When set, a soft light follows the finger inside this radius.
@@ -97,9 +104,16 @@ class _LiquidPressableState extends State<LiquidPressable>
     widget.onTap?.call();
   }
 
+  void _handleLongPress() {
+    // The tap was cancelled when the long press won, so we are springing
+    // back already.
+    Haptics.play(widget.longPressHaptic);
+    widget.onLongPress?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (widget.onTap == null) return widget.child;
+    if (widget.onTap == null && widget.onLongPress == null) return widget.child;
 
     return Semantics(
       button: true,
@@ -112,7 +126,8 @@ class _LiquidPressableState extends State<LiquidPressable>
           onTapDown: _handleDown,
           onTapUp: (_) => _release(tapped: true),
           onTapCancel: _release,
-          onTap: _handleTap,
+          onTap: widget.onTap == null ? null : _handleTap,
+          onLongPress: widget.onLongPress == null ? null : _handleLongPress,
           child: AnimatedBuilder(
             animation: Listenable.merge([_press, _lean, _leanOffset]),
             child: widget.child,

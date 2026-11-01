@@ -29,21 +29,23 @@ class DraftRow {
   }
 }
 
-/// State of the add/edit sheet, scoped to the sheet's route.
+/// State of the Bazar Diary sheet, scoped to the sheet's route.
 class ExpenseDraft extends ChangeNotifier {
-  /// [editing] is the date of an existing note being edited; null when adding.
-  ExpenseDraft({
-    required DateTime date,
-    List<Expense> items = const [],
-    this.editing,
-  }) : _date = dateOnly(date) {
-    for (final item in items) {
+  /// [existing] is the day being edited; null when starting a new one.
+  ExpenseDraft({required DateTime date, this.existing})
+    : _date = dateOnly(existing?.date ?? date),
+      thoughts = TextEditingController(text: existing?.thoughts ?? '') {
+    for (final item in existing?.items ?? const <Expense>[]) {
       _attach(DraftRow(name: item.name, amount: editableAmount(item.amount)));
     }
     _attach(DraftRow());
   }
 
-  final DateTime? editing;
+  final DayNote? existing;
+
+  /// The "Bazar thoughts" free text.
+  final TextEditingController thoughts;
+  final FocusNode thoughtsFocus = FocusNode();
   final List<DraftRow> _rows = [];
   DateTime _date;
   int _version = 0;
@@ -102,14 +104,16 @@ class ExpenseDraft extends ChangeNotifier {
   /// Writes the draft to [store]; returns the saved day, or null if nothing
   /// was kept.
   DateTime? commit(ExpenseStore store) {
-    final items = this.items;
-    if (editing != null) {
-      store.replaceDay(editing!, _date, items);
-      return items.isEmpty ? null : _date;
+    if (existing == null && items.isEmpty && thoughts.text.trim().isEmpty) {
+      return null;
     }
-    if (items.isEmpty) return null;
-    store.addItems(_date, items);
-    return _date;
+    store.saveDay(
+      original: existing?.date,
+      date: _date,
+      items: items,
+      thoughts: thoughts.text,
+    );
+    return store.dayFor(_date) == null ? null : _date;
   }
 
   @override
@@ -123,6 +127,8 @@ class ExpenseDraft extends ChangeNotifier {
     for (final r in _rows) {
       r.dispose();
     }
+    thoughts.dispose();
+    thoughtsFocus.dispose();
     super.dispose();
   }
 }

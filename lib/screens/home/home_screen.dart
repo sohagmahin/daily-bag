@@ -18,10 +18,11 @@ import '../../widgets/liquid_glass.dart';
 import '../../widgets/liquid_pressable.dart';
 import '../add_expense/add_expense_sheet.dart';
 import '../menu/view_menu.dart';
+import '../thoughts/thoughts_popover.dart';
 import 'spend_chart.dart';
 import 'summary_card.dart';
 
-/// "Expenses": the day (or month) list, the chart, and the add button.
+/// "Daily Bag": the day (or month) list, the chart, and "Fill the bag".
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -56,11 +57,34 @@ class _HomeScreenState extends State<HomeScreen> {
     ).push(ViewMenu.route(box.localToGlobal(Offset.zero) & box.size));
   }
 
-  Future<void> _openSheet({DayNote? editing}) async {
-    final saved = await Navigator.of(
-      context,
-    ).push(AddExpenseSheet.route(date: DateTime.now(), editing: editing));
+  /// Opens the Bazar Diary: today's, or [existing]'s when given.
+  Future<void> _openDiary({
+    DayNote? existing,
+    bool focusThoughts = false,
+  }) async {
+    final now = DateTime.now();
+    final saved = await Navigator.of(context).push(
+      AddExpenseSheet.route(
+        date: now,
+        existing: existing ?? context.read<ExpenseStore>().dayFor(now),
+        focusThoughts: focusThoughts,
+      ),
+    );
     if (saved != null) _reveal(saved);
+  }
+
+  Future<void> _openThoughts(DayNote day) async {
+    final box = _cardKeys[day.date]?.currentContext?.findRenderObject();
+    if (box is! RenderBox) return;
+    final action = await Navigator.of(context).push(
+      ThoughtsPopover.route(
+        day.date,
+        box.localToGlobal(Offset.zero) & box.size,
+      ),
+    );
+    if (!mounted || action != ThoughtsAction.edit) return;
+    final latest = context.read<ExpenseStore>().dayFor(day.date);
+    if (latest != null) _openDiary(existing: latest, focusThoughts: true);
   }
 
   void _selectFromChart(DateTime key) {
@@ -136,13 +160,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       onMenu: _openMenu,
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
                   _GroupList(
                     keyFor: _keyFor,
-                    onOpenNote: (day) => _openSheet(editing: day),
+                    onThoughts: _openThoughts,
                     onReveal: _reveal,
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
                   Entrance(
                     delay: const Duration(milliseconds: 260),
                     child: _ChartSection(onSelect: _selectFromChart),
@@ -210,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Entrance(
               delay: const Duration(milliseconds: 320),
               offset: 40,
-              child: _AddButton(onTap: _openSheet),
+              child: _AddButton(onTap: _openDiary),
             ),
           ),
         ],
@@ -263,7 +287,7 @@ class _Header extends StatelessWidget {
                 const SizedBox(height: 2),
                 Semantics(
                   header: true,
-                  child: const Text('Expenses', style: AppText.largeTitle),
+                  child: const Text('Daily Bag', style: AppText.largeTitle),
                 ),
               ],
             ),
@@ -296,12 +320,12 @@ class _Header extends StatelessWidget {
 class _GroupList extends StatelessWidget {
   const _GroupList({
     required this.keyFor,
-    required this.onOpenNote,
+    required this.onThoughts,
     required this.onReveal,
   });
 
   final GlobalKey Function(DateTime date) keyFor;
-  final ValueChanged<DayNote> onOpenNote;
+  final ValueChanged<DayNote> onThoughts;
   final ValueChanged<DateTime> onReveal;
 
   static Duration _stagger(int index) =>
@@ -385,11 +409,14 @@ class _GroupList extends StatelessWidget {
   Widget _dayCard(ExpenseStore store, DayNote day, bool expanded) {
     final weekday = weekdayName(day.date);
     final items = plural(day.items.length, 'item');
+    final hint = day.hasThoughts
+        ? 'Hold to read thoughts'
+        : 'Hold to add thoughts';
     return SummaryCard(
       key: keyFor(day.date),
       title: dayTitle(day.date),
       subtitle: '$weekday · $items',
-      expandedSubtitle: '$weekday · Note',
+      expandedSubtitle: '$weekday · $hint',
       total: day.total,
       lines: [
         for (final e in day.items) SummaryLine(label: e.name, amount: e.amount),
@@ -397,10 +424,12 @@ class _GroupList extends StatelessWidget {
       badgeGlyph: LineGlyph.note,
       expanded: expanded,
       onExpand: () => store.selectDay(day.date),
-      onOpen: () => onOpenNote(day),
+      onLongPress: () => onThoughts(day),
+      onBadgeTap: () => onThoughts(day),
+      badgeLabel:
+          'Show Bazar thoughts for ${day.date.day} ${monthName(day.date)}',
       semanticLabel:
-          '${dayTitle(day.date)}, $weekday, $items, '
-          '${formatTaka(day.total)}${expanded ? '. Edit note' : ''}',
+          '${dayTitle(day.date)}, $weekday, $items, ${formatTaka(day.total)}',
     );
   }
 
@@ -448,7 +477,6 @@ class _GroupList extends StatelessWidget {
       badgeGlyph: LineGlyph.calendarMonth,
       expanded: expanded,
       onExpand: () => store.selectMonth(month.month),
-      onOpen: null,
       semanticLabel:
           '${monthTitle(month.month)}, $summary, ${formatTaka(month.total)}',
     );
@@ -462,7 +490,7 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidBox(
       style: Glass.card,
-      height: 56,
+      height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 18),
       child: const Align(
         alignment: Alignment.centerLeft,
@@ -483,11 +511,6 @@ class _ChartSection extends StatelessWidget {
     final bars = store.chartBars;
     if (bars.isEmpty) return const SizedBox.shrink();
 
-    final n = bars.length;
-    final caption = store.mode == GroupMode.day
-        ? (n == 1 ? 'Last entry' : 'Last $n entries')
-        : (n == 1 ? 'This month' : 'Last $n months');
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -503,7 +526,7 @@ class _ChartSection extends StatelessWidget {
                   child: Text('Chart view', style: AppText.title3, maxLines: 1),
                 ),
                 const SizedBox(width: 12),
-                Text(caption, style: AppText.footnote, maxLines: 1),
+                _TotalToggle(total: store.grandTotal),
               ],
             ),
           ),
@@ -541,10 +564,123 @@ class _AddButton extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'Add expense',
+              'Fill the bag',
               style: AppText.headline.copyWith(color: AppColors.white),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The chart header's "Total" pill: everything spent, hidden until asked.
+class _TotalToggle extends StatefulWidget {
+  const _TotalToggle({required this.total});
+
+  final double total;
+
+  @override
+  State<_TotalToggle> createState() => _TotalToggleState();
+}
+
+class _TotalToggleState extends State<_TotalToggle> {
+  bool _shown = false;
+
+  static Widget _roll(Widget child, Animation<double> animation) =>
+      FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween(
+            begin: const Offset(0, 0.45),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        ),
+      );
+
+  static Widget _stackRight(Widget? current, List<Widget> previous) => Stack(
+    alignment: Alignment.centerRight,
+    children: [...previous, ?current],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = formatTaka(widget.total);
+    return LiquidPressable(
+      onTap: () => setState(() => _shown = !_shown),
+      haptic: HapticKind.selection,
+      pressedScale: 0.94,
+      borderRadius: 16,
+      semanticLabel: _shown ? 'Hide total: $amount' : 'Show total expenses',
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
+        decoration: BoxDecoration(
+          color: AppColors.quietFill,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: ExcludeSemantics(
+          child: AnimatedSize(
+            duration: Motion.snappy.duration,
+            curve: Motion.snappy,
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Total',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.secondaryLabelStrong,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                AnimatedSwitcher(
+                  duration: Motion.snappy.duration,
+                  switchInCurve: Motion.snappy,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: _roll,
+                  layoutBuilder: _stackRight,
+                  child: _shown
+                      ? Text(
+                          amount,
+                          key: const ValueKey('amount'),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.pillLabel,
+                            fontFeatures: AppText.tabular,
+                          ),
+                        )
+                      : const Text(
+                          '•••••',
+                          key: ValueKey('hidden'),
+                          style: TextStyle(
+                            fontSize: 13,
+                            letterSpacing: 1,
+                            color: AppColors.chevron,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 6),
+                AnimatedSwitcher(
+                  duration: Motion.snappy.duration,
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: animation,
+                    child: FadeTransition(opacity: animation, child: child),
+                  ),
+                  child: LineIcon(
+                    _shown ? LineGlyph.eyeOff : LineGlyph.eye,
+                    key: ValueKey(_shown),
+                    size: 16,
+                    strokeWidth: 2,
+                    color: AppColors.secondaryLabelStrong,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

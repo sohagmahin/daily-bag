@@ -13,6 +13,11 @@ enum LineGlyph {
   check,
   calendarDay,
   calendarMonth,
+  eye,
+  eyeOff,
+  pencil,
+  share,
+  trash,
 }
 
 class LineIcon extends StatelessWidget {
@@ -111,6 +116,62 @@ class _LineIconPainter extends CustomPainter {
         calendar();
         line(8, 14, 16, 14);
         line(8, 17, 13, 17);
+      // SVG shorthand (s/S, relative a/c) is expanded to absolute points.
+      case LineGlyph.eye:
+        p
+          ..moveTo(2, 12)
+          ..cubicTo(2, 12, 5.5, 6, 12, 6)
+          ..cubicTo(18.5, 6, 22, 12, 22, 12)
+          ..cubicTo(22, 12, 18.5, 18, 12, 18)
+          ..cubicTo(5.5, 18, 2, 12, 2, 12)
+          ..close()
+          ..addOval(Rect.fromCircle(center: const Offset(12, 12), radius: 2.6));
+      case LineGlyph.eyeOff:
+        line(3, 3, 21, 21);
+        p
+          ..moveTo(10.6, 6.1)
+          ..arcToPoint(const Offset(12, 6), radius: const Radius.circular(10))
+          ..cubicTo(18.5, 6, 22, 12, 22, 12)
+          ..arcToPoint(
+            const Offset(19, 15.6),
+            radius: const Radius.circular(17),
+          )
+          ..moveTo(6.6, 6.6)
+          ..cubicTo(3.8, 8.4, 2, 12, 2, 12)
+          ..cubicTo(2, 12, 5.5, 18, 12, 18)
+          ..cubicTo(13.6, 18, 15, 17.6, 16.3, 17);
+      case LineGlyph.pencil:
+        p
+          ..moveTo(4, 20)
+          ..lineTo(8, 20)
+          ..lineTo(19, 9)
+          ..lineTo(15, 5)
+          ..lineTo(4, 16)
+          ..close();
+        line(13.5, 6.5, 17.5, 10.5);
+      case LineGlyph.share:
+        line(12, 3, 12, 15);
+        p
+          ..moveTo(8, 7)
+          ..lineTo(12, 3)
+          ..lineTo(16, 7)
+          ..moveTo(6, 11)
+          ..lineTo(5, 11)
+          ..lineTo(5, 20)
+          ..lineTo(19, 20)
+          ..lineTo(19, 11)
+          ..lineTo(18, 11);
+      case LineGlyph.trash:
+        line(4, 7, 20, 7);
+        p
+          ..moveTo(9, 7)
+          ..lineTo(9, 4)
+          ..lineTo(15, 4)
+          ..lineTo(15, 7)
+          ..moveTo(6, 7)
+          ..lineTo(7, 20)
+          ..lineTo(17, 20)
+          ..lineTo(18, 7);
     }
     return p;
   }

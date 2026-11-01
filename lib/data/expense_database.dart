@@ -4,10 +4,11 @@ import 'package:sqflite/sqflite.dart';
 import '../app/format.dart';
 import '../models/expense.dart';
 
-/// On-device storage: one row per expense, plus a small settings table.
+/// On-device storage: one row per expense, one per day's Bazar thoughts,
+/// and a small settings table.
 ///
 /// Days are written whole (delete then insert), which keeps the stored
-/// order identical to the note and is cheap at a few rows per day.
+/// order identical to the diary and is cheap at a few rows per day.
 class ExpenseDatabase {
   ExpenseDatabase._(this._db);
 
@@ -27,10 +28,17 @@ class ExpenseDatabase {
         path ?? p.join(await dbFactory.getDatabasesPath(), _fileName);
     final db = await dbFactory.openDatabase(
       location,
-      options: OpenDatabaseOptions(version: 1, onCreate: _create),
+      options: OpenDatabaseOptions(
+        version: 2,
+        onCreate: _create,
+        onUpgrade: _upgrade,
+      ),
     );
     return ExpenseDatabase._(db);
   }
+
+  static const _thoughtsTable =
+      'CREATE TABLE thoughts (day TEXT PRIMARY KEY, text TEXT NOT NULL)';
 
   static Future<void> _create(Database db, int version) async {
     final batch = db.batch()
@@ -43,17 +51,22 @@ class ExpenseDatabase {
           amount_minor INTEGER NOT NULL
         )''')
       ..execute('CREATE INDEX expenses_by_day ON expenses (day, position)')
+      ..execute(_thoughtsTable)
       ..execute(
         'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
       );
     await batch.commit(noResult: true);
   }
 
-  Future<Map<DateTime, List<Expense>>> loadDays() async {
-    final rows = await _db.query('expenses', orderBy: 'day, position');
-    final days = <DateTime, List<Expense>>{};
-    for (final row in rows) {
-      days
+  static Future<void> _upgrade(Database db, int from, int to) async {
+    // v2: Bazar thoughts.
+    if (from < 2) await db.execute(_thoughtsTable);
+  }
+
+  Future<List<DayNote>> loadDays() async {
+    final items = <DateTime, List<Expense>>{};
+    for (final row in await _db.query('expenses', orderBy: 'day, position')) {
+      items
           .putIfAbsent(_parseDay(row['day']! as String), () => [])
           .add(
             Expense(
@@ -62,25 +75,37 @@ class ExpenseDatabase {
             ),
           );
     }
-    return days;
+    final thoughts = {
+      for (final row in await _db.query('thoughts'))
+        _parseDay(row['day']! as String): row['text']! as String,
+    };
+    return [
+      for (final day in {...items.keys, ...thoughts.keys})
+        DayNote(day, items[day] ?? const [], thoughts: thoughts[day] ?? ''),
+    ];
   }
 
-  /// Replaces the stored items of each given day, atomically. An empty
-  /// list deletes that day.
-  Future<void> writeDays(Map<DateTime, List<Expense>> days) {
+  /// Replaces each given day, atomically. A null note deletes that day.
+  Future<void> writeDays(Map<DateTime, DayNote?> days) {
     return _db.transaction((txn) async {
       final batch = txn.batch();
-      days.forEach((day, items) {
+      days.forEach((day, note) {
         final key = _dayKey(day);
-        batch.delete('expenses', where: 'day = ?', whereArgs: [key]);
-        for (var i = 0; i < items.length; i++) {
+        batch
+          ..delete('expenses', where: 'day = ?', whereArgs: [key])
+          ..delete('thoughts', where: 'day = ?', whereArgs: [key]);
+        if (note == null) return;
+        for (var i = 0; i < note.items.length; i++) {
           batch.insert('expenses', {
             'day': key,
             'position': i,
-            'name': items[i].name,
+            'name': note.items[i].name,
             // Whole poisha, so money never passes through float rounding.
-            'amount_minor': (items[i].amount * 100).round(),
+            'amount_minor': (note.items[i].amount * 100).round(),
           });
+        }
+        if (note.hasThoughts) {
+          batch.insert('thoughts', {'day': key, 'text': note.thoughts});
         }
       });
       await batch.commit(noResult: true);
