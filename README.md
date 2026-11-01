@@ -7,6 +7,8 @@
 - [ ] Add Bangla language
 - [ ] Add dark theme
 - [ ] Export to Excel
+- [ ] Setting : Currency Setup 
+- [ ] Turn ON/OFF haptic
 
 ## Install on iPhone
 
