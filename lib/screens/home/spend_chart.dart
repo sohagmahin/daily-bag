@@ -10,85 +10,210 @@ import '../../models/expense.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/liquid_pressable.dart';
 
-/// "Chart view": the last five entries as glass bars. The open day is the
-/// solid bar; tapping a bar opens that day.
-class SpendChart extends StatelessWidget {
+/// "Chart view": recent entries as glass bars, five to a screen. It opens
+/// on the newest and scrolls back in time. The open day is the solid bar
+/// and is kept in view; tapping a bar opens that day.
+class SpendChart extends StatefulWidget {
   const SpendChart({super.key, required this.bars, required this.onSelect});
-
-  static const _columns = 5;
-  static const _gap = 14.0;
-  static const _plotHeight = 132.0;
-  static const _tallestBar = 120.0;
 
   final List<ChartBar> bars;
   final ValueChanged<DateTime> onSelect;
 
   @override
-  Widget build(BuildContext context) {
-    final peak = bars.fold<double>(0, (m, b) => b.value > m ? b.value : m);
+  State<SpendChart> createState() => _SpendChartState();
+}
 
-    List<Widget> spaced(Widget Function(ChartBar bar) cell) => [
-      for (var i = 0; i < _columns; i++) ...[
-        if (i > 0) const SizedBox(width: _gap),
-        Expanded(child: i < bars.length ? cell(bars[i]) : const SizedBox()),
-      ],
-    ];
+class _SpendChartState extends State<SpendChart> {
+  /// Bars that fit in view at once.
+  static const _columns = 5;
+  static const _gap = 14.0;
+  static const _inset = 18.0;
+  static const _plotHeight = 132.0;
+  static const _tallestBar = 120.0;
+
+  /// Room either side of the row, so the outer bars sit [_inset] in.
+  static const _edge = _inset - _gap / 2;
+
+  final _scroll = ScrollController();
+
+  /// One bar's width plus a gap, from the latest layout.
+  double _slot = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _reveal(animate: false),
+    );
+  }
+
+  @override
+  void didUpdateWidget(SpendChart old) {
+    super.didUpdateWidget(old);
+    if (_selectedKey(old.bars) != _selectedKey(widget.bars) ||
+        old.bars.length != widget.bars.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  static DateTime? _selectedKey(List<ChartBar> bars) {
+    for (final bar in bars) {
+      if (bar.selected) return bar.key;
+    }
+    return null;
+  }
+
+  /// Short histories still fill five slots from the left.
+  int get _slots =>
+      widget.bars.length < _columns ? _columns : widget.bars.length;
+
+  /// Scrolls just enough to bring the open bar fully into view.
+  void _reveal({bool animate = true}) {
+    if (!mounted || !_scroll.hasClients || _slot == 0) return;
+    final index = widget.bars.indexWhere((b) => b.selected);
+    if (index < 0) return;
+
+    // The view is reversed: offsets count back from the newest end.
+    final position = _scroll.position;
+    final start = _edge + (_slots - 1 - index) * _slot;
+    final end = start + _slot;
+    final double target;
+    if (start < position.pixels) {
+      target = start - _edge;
+    } else if (end > position.pixels + position.viewportDimension) {
+      target = end + _edge - position.viewportDimension;
+    } else {
+      return;
+    }
+    final to = target.clamp(position.minScrollExtent, position.maxScrollExtent);
+    if (animate) {
+      _scroll.animateTo(
+        to,
+        duration: Motion.smooth.duration,
+        curve: Motion.smooth,
+      );
+    } else {
+      _scroll.jumpTo(to);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bars = widget.bars;
+    final peak = bars.fold<double>(0, (m, b) => b.value > m ? b.value : m);
 
     return LiquidBox(
       style: Glass.chart,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Semantics(
         container: true,
         label: 'Spending chart',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: _plotHeight,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: spaced(
-                  (bar) => _BarColumn(
-                    key: ValueKey(bar.key),
-                    bar: bar,
-                    height: peak == 0 ? 0 : bar.value / peak * _tallestBar,
-                    onTap: () => onSelect(bar.key),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            ExcludeSemantics(
-              child: Row(
-                children: spaced(
-                  (bar) => AnimatedDefaultTextStyle(
-                    duration: Motion.snappy.duration,
-                    curve: Curves.easeOut,
-                    textAlign: TextAlign.center,
-                    style: AppText.caption.copyWith(
-                      color: bar.selected
-                          ? AppColors.label
-                          : AppColors.amountLabel,
-                      fontWeight: bar.selected
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      fontFeatures: AppText.tabular,
-                    ),
-                    child: Text(bar.label),
-                  ),
-                ),
-              ),
-            ),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final inner = constraints.maxWidth - 2 * _inset;
+            _slot = (inner - (_columns - 1) * _gap) / _columns + _gap;
+            final fade = _inset / constraints.maxWidth;
+            return ShaderMask(
+              // Bars dissolve into the glass at the edges, not cut off.
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (rect) => LinearGradient(
+                colors: const [
+                  Color(0x00000000),
+                  Color(0xFF000000),
+                  Color(0xFF000000),
+                  Color(0x00000000),
+                ],
+                stops: [0, fade, 1 - fade, 1],
+              ).createShader(rect),
+              child: _scrollView(bars, peak),
+            );
+          },
         ),
       ),
+    );
+  }
+
+  Widget _scrollView(List<ChartBar> bars, double peak) {
+    return SingleChildScrollView(
+      controller: _scroll,
+      scrollDirection: Axis.horizontal,
+      // Offset zero is the newest end: the chart opens there and
+      // stays put as new days arrive on the right.
+      reverse: true,
+      physics: const BouncingScrollPhysics(),
+      // The top padding scrolls too, so the selected bar's amount
+      // can rise above the plot without being clipped.
+      padding: const EdgeInsets.fromLTRB(_edge, 16, _edge, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < _slots; i++)
+            SizedBox(
+              key: i < bars.length ? ValueKey(bars[i].key) : null,
+              width: _slot,
+              child: i < bars.length
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: _gap / 2),
+                      child: _Entry(
+                        bar: bars[i],
+                        height: peak == 0
+                            ? 0
+                            : bars[i].value / peak * _tallestBar,
+                        onTap: () => widget.onSelect(bars[i].key),
+                      ),
+                    )
+                  : null,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One bar with its label underneath.
+class _Entry extends StatelessWidget {
+  const _Entry({required this.bar, required this.height, required this.onTap});
+
+  final ChartBar bar;
+  final double height;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: _SpendChartState._plotHeight,
+          child: _BarColumn(bar: bar, height: height, onTap: onTap),
+        ),
+        const SizedBox(height: 8),
+        ExcludeSemantics(
+          child: AnimatedDefaultTextStyle(
+            duration: Motion.snappy.duration,
+            curve: Curves.easeOut,
+            textAlign: TextAlign.center,
+            style: AppText.caption.copyWith(
+              color: bar.selected ? AppColors.label : AppColors.amountLabel,
+              fontWeight: bar.selected ? FontWeight.w700 : FontWeight.w500,
+              fontFeatures: AppText.tabular,
+            ),
+            child: Text(bar.label),
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _BarColumn extends StatelessWidget {
   const _BarColumn({
-    super.key,
     required this.bar,
     required this.height,
     required this.onTap,

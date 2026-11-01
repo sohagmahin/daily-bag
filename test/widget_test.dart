@@ -4,8 +4,15 @@ import 'package:provider/provider.dart';
 
 import 'package:little_expense/main.dart';
 import 'package:little_expense/models/expense.dart';
+import 'package:little_expense/screens/home/spend_chart.dart';
 import 'package:little_expense/state/expense_draft.dart';
 import 'package:little_expense/state/expense_store.dart';
+
+/// One small purchase a day for [count] days from 1 Jan 2026.
+List<DayNote> dailyDays(int count) => [
+  for (var i = 0; i < count; i++)
+    DayNote(DateTime(2026, 1, 1 + i), [Expense(name: 'Tea', amount: 10.0 + i)]),
+];
 
 void main() {
   group('ExpenseStore', () {
@@ -87,6 +94,14 @@ void main() {
       expect(store.eyebrow, '2026');
       expect(store.chartBars.map((b) => b.label), ['Feb', 'Mar']);
     });
+
+    test('the chart keeps the last 30 days with spending', () {
+      final store = ExpenseStore(days: dailyDays(35));
+      expect(store.chartBars, hasLength(30));
+      expect(store.chartBars.first.key, DateTime(2026, 1, 6));
+      expect(store.chartBars.last.key, DateTime(2026, 2, 4));
+      expect(store.chartBars.last.selected, isTrue);
+    });
   });
 
   test('draft edits a day: rows with an amount, plus thoughts', () {
@@ -109,7 +124,10 @@ void main() {
   });
 
   group('home', () {
-    Future<ExpenseStore> pumpHome(WidgetTester tester) async {
+    Future<ExpenseStore> pumpHome(
+      WidgetTester tester, [
+      ExpenseStore? store,
+    ]) async {
       tester.platformDispatcher.accessibilityFeaturesTestValue =
           const FakeAccessibilityFeatures(disableAnimations: true);
       addTearDown(
@@ -118,7 +136,7 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      final store = ExpenseStore.demo();
+      store ??= ExpenseStore.demo();
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
           value: store,
@@ -176,6 +194,30 @@ void main() {
       expect(find.text('BAZAR THOUGHTS'), findsNothing);
       expect(store.dayFor(DateTime(2026, 2, 20))!.hasThoughts, isFalse);
       expect(store.dayFor(DateTime(2026, 2, 20))!.items, hasLength(3));
+    });
+
+    testWidgets('the chart opens on the newest bar and scrolls back', (
+      tester,
+    ) async {
+      final store = await pumpHome(tester, ExpenseStore(days: dailyDays(35)));
+      bool shown(String label) => tester
+          .getRect(find.byType(SpendChart))
+          .contains(tester.getCenter(find.text(label)));
+
+      expect(shown('04'), isTrue, reason: '4 Feb, the newest');
+      expect(shown('06'), isFalse, reason: '6 Jan, the oldest kept');
+
+      await tester.drag(find.byType(SpendChart), const Offset(2000, 0));
+      await settle(tester);
+      await settle(tester);
+      expect(shown('06'), isTrue);
+      expect(shown('04'), isFalse);
+
+      // Opening a day elsewhere brings its bar back into view.
+      store.selectDay(DateTime(2026, 2, 3));
+      await settle(tester);
+      await settle(tester);
+      expect(shown('03'), isTrue);
     });
 
     testWidgets('"Fill the bag" starts blank and adds to today', (

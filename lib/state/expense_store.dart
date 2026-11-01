@@ -75,7 +75,8 @@ class ExpenseStore extends ChangeNotifier {
     ],
   );
 
-  static const chartLength = 5;
+  /// Most bars the chart keeps; older ones are left to the day list.
+  static const chartLength = 30;
 
   final ExpenseDatabase? _database;
   final _days = SplayTreeMap<DateTime, DayNote>();
@@ -124,7 +125,7 @@ class ExpenseStore extends ChangeNotifier {
 
   DayNote? dayFor(DateTime date) => _days[dateOnly(date)];
 
-  /// The last five days (or months) with spending, oldest first.
+  /// The last [chartLength] days (or months) with spending, oldest first.
   List<ChartBar> get chartBars {
     if (_mode == GroupMode.month) {
       final all = months.where((m) => m.total > 0).toList();
