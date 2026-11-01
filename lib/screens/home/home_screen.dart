@@ -57,16 +57,16 @@ class _HomeScreenState extends State<HomeScreen> {
     ).push(ViewMenu.route(box.localToGlobal(Offset.zero) & box.size));
   }
 
-  /// Opens the Bazar Diary: today's, or [existing]'s when given.
+  /// Opens the Bazar Diary: blank for a new entry (saved items are added to
+  /// that day's), or filled from [existing] to edit it.
   Future<void> _openDiary({
     DayNote? existing,
     bool focusThoughts = false,
   }) async {
-    final now = DateTime.now();
     final saved = await Navigator.of(context).push(
       AddExpenseSheet.route(
-        date: now,
-        existing: existing ?? context.read<ExpenseStore>().dayFor(now),
+        date: DateTime.now(),
+        existing: existing,
         focusThoughts: focusThoughts,
       ),
     );

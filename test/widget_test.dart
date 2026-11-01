@@ -178,6 +178,36 @@ void main() {
       expect(store.dayFor(DateTime(2026, 2, 20))!.items, hasLength(3));
     });
 
+    testWidgets('"Fill the bag" starts blank and adds to today', (
+      tester,
+    ) async {
+      final store = await pumpHome(tester);
+      final today = DateTime.now();
+      store.saveDay(
+        date: today,
+        items: const [Expense(name: 'Rice', amount: 100)],
+      );
+      await settle(tester);
+
+      await tester.tap(find.text('Fill the bag'));
+      await settle(tester);
+      final fields = find.descendant(
+        of: find.bySemanticsLabel('Bazar Diary'),
+        matching: find.byType(EditableText),
+      );
+      for (final field in tester.widgetList<EditableText>(fields)) {
+        expect(field.controller.text, isEmpty);
+      }
+
+      await tester.enterText(fields.at(0), 'Eggs');
+      await tester.enterText(fields.at(1), '50');
+      await tester.tap(find.text('Done'));
+      await settle(tester);
+
+      expect(store.dayFor(today)!.items.map((e) => e.name), ['Rice', 'Eggs']);
+      expect(store.dayFor(today)!.total, 150);
+    });
+
     testWidgets('"Edit thoughts" opens the diary in the thoughts field', (
       tester,
     ) async {
