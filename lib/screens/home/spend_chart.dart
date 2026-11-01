@@ -10,9 +10,9 @@ import '../../models/expense.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/liquid_pressable.dart';
 
-/// "Chart view": recent entries as glass bars, five to a screen. It opens
-/// on the newest and scrolls back in time. The open day is the solid bar
-/// and is kept in view; tapping a bar opens that day.
+/// "Recent spending": the latest entries as glass bars, five to a screen.
+/// It opens on the newest and scrolls back in time. The open day is the
+/// solid bar and is kept in view; tapping a bar opens that day.
 class SpendChart extends StatefulWidget {
   const SpendChart({super.key, required this.bars, required this.onSelect});
 

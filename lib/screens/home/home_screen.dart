@@ -523,7 +523,11 @@ class _ChartSection extends StatelessWidget {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 const Flexible(
-                  child: Text('Chart view', style: AppText.title3, maxLines: 1),
+                  child: Text(
+                    'Recent spending',
+                    style: AppText.title3,
+                    maxLines: 1,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 _TotalToggle(total: store.grandTotal),
