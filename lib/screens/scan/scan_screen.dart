@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/cupertino.dart';
@@ -148,9 +149,8 @@ class _ScanScreenState extends State<ScanScreen>
   ScanMode _mode = ScanMode.receipt;
   _Stage _stage = _Stage.camera;
 
-  /// The photo being read, frozen behind the frame, and its pixel size.
-  String? _photo;
-  Size? _photoSize;
+  /// The photo being read, decoded and frozen behind the frame.
+  ui.Image? _photo;
   ScanResult? _result;
   List<_ReviewItem> _items = [];
 
@@ -171,6 +171,7 @@ class _ScanScreenState extends State<ScanScreen>
     _sweep.dispose();
     _sheetCurve.dispose();
     _sheet.dispose();
+    _photo?.dispose();
     for (final item in _items) {
       item.price.dispose();
     }
@@ -267,18 +268,22 @@ class _ScanScreenState extends State<ScanScreen>
   Future<void> _read(String path) async {
     setState(() {
       _stage = _Stage.scanning;
-      _photo = path;
-      _photoSize = null;
       _result = null;
       _notice = null;
     });
-    _measure(path);
 
     var done = false;
     final reading = TextReader.read(path)
         .then((lines) => ScanParser.parse(lines, _mode))
         .catchError((Object _) => const ScanResult(items: []))
         .whenComplete(() => done = true);
+    // Decode the photo first, so the sweep always passes over it.
+    final photo = await _decode(path);
+    if (!mounted) {
+      photo?.dispose();
+      return;
+    }
+    _showPhoto(photo);
     // One full sweep always plays, so the read feels deliberate; slow
     // reads keep sweeping until they finish.
     await _sweep.forward(from: 0);
@@ -293,9 +298,9 @@ class _ScanScreenState extends State<ScanScreen>
 
     if (result.items.isEmpty) {
       Haptics.play(HapticKind.warning);
+      _showPhoto(null);
       setState(() {
         _stage = _Stage.camera;
-        _photo = null;
         _notice = tr.noItemsFound;
       });
       return;
@@ -312,30 +317,35 @@ class _ScanScreenState extends State<ScanScreen>
     _sheet.forward(from: 0);
   }
 
-  void _measure(String path) {
-    final stream = FileImage(File(path)).resolve(ImageConfiguration.empty);
-    late final ImageStreamListener listener;
-    listener = ImageStreamListener((info, _) {
-      stream.removeListener(listener);
-      if (mounted && _photo == path) {
-        setState(
-          () => _photoSize = Size(
-            info.image.width.toDouble(),
-            info.image.height.toDouble(),
-          ),
-        );
-      }
-    }, onError: (_, _) => stream.removeListener(listener));
-    stream.addListener(listener);
+  static Future<ui.Image?> _decode(String path) async {
+    try {
+      final codec = await ui.instantiateImageCodec(
+        await File(path).readAsBytes(),
+      );
+      final frame = await codec.getNextFrame();
+      codec.dispose();
+      return frame.image;
+    } on Object {
+      return null;
+    }
+  }
+
+  void _showPhoto(ui.Image? photo) {
+    final old = _photo;
+    setState(() => _photo = photo);
+    // The old picture may still be on screen until the next frame.
+    if (old != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+    }
   }
 
   Future<void> _retake() async {
     FocusScope.of(context).unfocus();
     await _sheet.reverse();
     if (!mounted) return;
+    _showPhoto(null);
     setState(() {
       _stage = _Stage.camera;
-      _photo = null;
       _result = null;
     });
     _sweep.value = 0;
@@ -384,17 +394,16 @@ class _ScanScreenState extends State<ScanScreen>
           Positioned.fill(child: _Preview(camera: camera)),
         if (_photo case final photo?)
           Positioned.fill(
-            child: Image.file(
-              File(photo),
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
-            ),
+            child: RawImage(image: photo, fit: BoxFit.cover),
           ),
-        if (_result != null && _photoSize != null)
+        if (_result != null && _photo != null)
           Positioned.fill(
             child: _Highlights(
               items: _result!.items,
-              photoSize: _photoSize!,
+              photoSize: Size(
+                _photo!.width.toDouble(),
+                _photo!.height.toDouble(),
+              ),
               sweep: _sweep,
               frame: frame,
               settled: review,
