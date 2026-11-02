@@ -6,6 +6,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:little_expense/data/expense_database.dart';
 import 'package:little_expense/models/expense.dart';
+import 'package:little_expense/state/bazar_store.dart';
 import 'package:little_expense/state/expense_store.dart';
 
 void main() {
@@ -157,5 +158,28 @@ void main() {
       restored.dayFor(DateTime(2026, 3, 2))!.thoughts,
       'Written after the upgrade.',
     );
+  });
+
+  test('the Bazar Note list survives a restart', () async {
+    final db = await open();
+    final bazar = await BazarStore.load(db);
+    expect(bazar.items, isEmpty);
+    final rice = bazar.add('Rice')!;
+    bazar
+      ..add('Soap')
+      ..toggle(rice.id)
+      ..setPrice(rice.id, 452.5);
+    await bazar.flush();
+    await db.close();
+
+    final reopened = await open();
+    addTearDown(reopened.close);
+    final restored = await BazarStore.load(reopened);
+    expect(restored.items.map((x) => x.name), ['Rice', 'Soap']);
+    expect(restored.items.first.checked, isTrue);
+    expect(restored.items.first.price, 452.5);
+    expect(restored.items.last.price, isNull);
+    // New ids carry on after the stored ones.
+    expect(restored.add('Tea')!.id, greaterThan(rice.id + 1));
   });
 }

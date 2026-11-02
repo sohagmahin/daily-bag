@@ -4,11 +4,16 @@ import 'package:flutter/widgets.dart';
 
 import '../app/tokens.dart';
 
-/// The four soft colour fields behind the glass. Each one drifts slowly so
+/// The soft colour fields behind the glass. Each one drifts slowly so
 /// the glass above it always has something alive to refract; frame zero is
 /// exactly the design.
 class LiquidBackground extends StatefulWidget {
-  const LiquidBackground({super.key});
+  const LiquidBackground({super.key}) : _blobs = _homeBlobs;
+
+  /// The Bazar Note's mint, blue and apricot fields.
+  const LiquidBackground.bazarNote({super.key}) : _blobs = _bazarBlobs;
+
+  final List<_Blob> _blobs;
 
   @override
   State<LiquidBackground> createState() => _LiquidBackgroundState();
@@ -40,7 +45,10 @@ class _LiquidBackgroundState extends State<LiquidBackground>
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: CustomPaint(painter: _BlobPainter(_drift), size: Size.infinite),
+      child: CustomPaint(
+        painter: _BlobPainter(_drift, widget._blobs),
+        size: Size.infinite,
+      ),
     );
   }
 }
@@ -73,7 +81,7 @@ class _Blob {
   }
 }
 
-const _blobs = [
+const _homeBlobs = [
   _Blob(
     diameter: 320,
     color: Color(0xFF8EC5FF),
@@ -112,16 +120,47 @@ const _blobs = [
   ),
 ];
 
+const _bazarBlobs = [
+  _Blob(
+    diameter: 320,
+    color: Color(0xFF9BE7D2),
+    blur: 70,
+    opacity: 0.85,
+    phase: 0.0,
+    right: -110,
+    top: -60,
+  ),
+  _Blob(
+    diameter: 280,
+    color: Color(0xFF8EC5FF),
+    blur: 70,
+    opacity: 0.85,
+    phase: 1.7,
+    left: -120,
+    top: 260,
+  ),
+  _Blob(
+    diameter: 300,
+    color: Color(0xFFFFD59E),
+    blur: 80,
+    opacity: 0.8,
+    phase: 3.1,
+    right: -80,
+    top: 560,
+  ),
+];
+
 class _BlobPainter extends CustomPainter {
-  _BlobPainter(this.drift) : super(repaint: drift);
+  _BlobPainter(this.drift, this.blobs) : super(repaint: drift);
 
   final Animation<double> drift;
+  final List<_Blob> blobs;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(Offset.zero & size, Paint()..color = AppColors.background);
     final a = drift.value * 2 * math.pi;
-    for (final blob in _blobs) {
+    for (final blob in blobs) {
       // Offsets are relative to the start so the first frame is the design.
       final dx = (math.sin(a + blob.phase) - math.sin(blob.phase)) * 16;
       final dy = (math.cos(a * 2 + blob.phase) - math.cos(blob.phase)) * 10;
@@ -137,5 +176,5 @@ class _BlobPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_BlobPainter oldDelegate) => false;
+  bool shouldRepaint(_BlobPainter oldDelegate) => oldDelegate.blobs != blobs;
 }

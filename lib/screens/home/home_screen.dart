@@ -10,6 +10,7 @@ import '../../app/haptics.dart';
 import '../../app/motion.dart';
 import '../../app/tokens.dart';
 import '../../models/expense.dart';
+import '../../state/bazar_store.dart';
 import '../../state/expense_store.dart';
 import '../../widgets/entrance.dart';
 import '../../widgets/line_icon.dart';
@@ -17,6 +18,7 @@ import '../../widgets/liquid_background.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/liquid_pressable.dart';
 import '../add_expense/add_expense_sheet.dart';
+import '../bazar_note/bazar_note_screen.dart';
 import '../menu/view_menu.dart';
 import '../thoughts/thoughts_popover.dart';
 import 'spend_chart.dart';
@@ -71,6 +73,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     if (saved != null) _reveal(saved);
+  }
+
+  /// Opens the Bazar Note; shows the day bought items were moved to.
+  Future<void> _openBazar() async {
+    final moved = await Navigator.of(context).push(BazarNoteScreen.route());
+    if (moved != null) _reveal(moved);
   }
 
   Future<void> _openThoughts(DayNote day) async {
@@ -158,6 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: _Header(
                       menuButtonKey: _menuButtonKey,
                       onMenu: _openMenu,
+                      onBazar: _openBazar,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -244,10 +253,15 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.menuButtonKey, required this.onMenu});
+  const _Header({
+    required this.menuButtonKey,
+    required this.onMenu,
+    required this.onBazar,
+  });
 
   final GlobalKey menuButtonKey;
   final VoidCallback onMenu;
+  final VoidCallback onBazar;
 
   @override
   Widget build(BuildContext context) {
@@ -294,6 +308,8 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
+        _BazarButton(onTap: onBazar),
+        const SizedBox(width: 8),
         KeyedSubtree(
           key: menuButtonKey,
           child: LiquidPressable(
@@ -313,6 +329,82 @@ class _Header extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Opens the Bazar Note; the orange badge counts what is left to buy.
+class _BazarButton extends StatelessWidget {
+  const _BazarButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final left = context.select<BazarStore, int>((s) => s.leftCount);
+    return LiquidPressable(
+      onTap: onTap,
+      haptic: HapticKind.light,
+      pressedScale: 0.9,
+      borderRadius: 23,
+      semanticLabel: left == 0
+          ? 'Bazar Note'
+          : 'Bazar Note, ${plural(left, 'item')} left to buy',
+      child: ExcludeSemantics(
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            LiquidBox(
+              style: Glass.menuButton,
+              width: 44,
+              height: 44,
+              child: const Center(
+                child: LineIcon(LineGlyph.clipboard, size: 22, strokeWidth: 2),
+              ),
+            ),
+            Positioned(
+              top: -3,
+              right: -3,
+              child: AnimatedScale(
+                scale: left == 0 ? 0 : 1,
+                duration: Motion.bouncy.duration,
+                curve: left == 0 ? Curves.easeIn : Motion.bouncy,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 18),
+                  height: 18,
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.orange,
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(
+                      color: const Color.fromRGBO(255, 255, 255, 0.95),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        offset: const Offset(0, 3),
+                        blurRadius: 8,
+                        color: AppColors.orange.withValues(alpha: 0.4),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '${math.max(left, 1)}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      height: 1,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.white,
+                      fontFeatures: AppText.tabular,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

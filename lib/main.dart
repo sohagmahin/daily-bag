@@ -5,15 +5,24 @@ import 'package:provider/provider.dart';
 import 'app/tokens.dart';
 import 'data/expense_database.dart';
 import 'screens/home/home_screen.dart';
+import 'state/bazar_store.dart';
 import 'state/expense_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   // A few kilobytes of rows: loads well within the launch screen.
-  final store = await ExpenseStore.load(await ExpenseDatabase.open());
+  final database = await ExpenseDatabase.open();
+  final store = await ExpenseStore.load(database);
+  final bazar = await BazarStore.load(database);
   runApp(
-    ChangeNotifierProvider.value(value: store, child: const LittleExpenseApp()),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: store),
+        ChangeNotifierProvider.value(value: bazar),
+      ],
+      child: const LittleExpenseApp(),
+    ),
   );
 }
 

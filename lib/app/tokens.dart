@@ -35,6 +35,11 @@ abstract final class AppColors {
   static const quietFill = Color.fromRGBO(118, 118, 128, 0.10);
   static const separatorSoft = Color.fromRGBO(60, 60, 67, 0.12);
   static const destructive = Color(0xFFD70015);
+
+  static const green = Color(0xFF34C759);
+  static const orange = Color(0xFFFF9500);
+  static const checkRing = Color.fromRGBO(60, 60, 67, 0.35);
+  static const checkWell = Color.fromRGBO(255, 255, 255, 0.5);
 }
 
 abstract final class AppText {
@@ -299,6 +304,49 @@ abstract final class Glass {
   static final thoughtsCard = GlassStyle(
     radius: 28,
     color: const Color.fromRGBO(255, 255, 255, 0.78),
+    blur: 36,
+    saturation: 2,
+    borderColor: const Color.fromRGBO(255, 255, 255, 0.95),
+    shadows: [
+      _rim(1),
+      const CssShadow(
+        dy: 30,
+        blur: 60,
+        color: Color.fromRGBO(20, 30, 70, 0.22),
+      ),
+    ],
+  );
+
+  /// The Bazar Note's "Add an item to buy…" field.
+  static final bazarField = GlassStyle(
+    radius: 22,
+    color: const Color.fromRGBO(255, 255, 255, 0.55),
+    blur: 24,
+    saturation: 1.8,
+    borderColor: const Color.fromRGBO(255, 255, 255, 0.85),
+    shadows: [
+      _rim(0.95),
+      CssShadow(dy: 8, blur: 24, color: _navy.withValues(alpha: 0.08)),
+    ],
+  );
+
+  /// The card holding the shopping list.
+  static final bazarList = GlassStyle(
+    radius: 26,
+    color: const Color.fromRGBO(255, 255, 255, 0.45),
+    blur: 26,
+    saturation: 1.8,
+    borderColor: const Color.fromRGBO(255, 255, 255, 0.75),
+    shadows: [
+      _rim(0.9),
+      CssShadow(dy: 10, blur: 28, color: _navy.withValues(alpha: 0.10)),
+    ],
+  );
+
+  /// "Added to Daily Bag" confirmation.
+  static final movedCard = GlassStyle(
+    radius: 32,
+    color: const Color.fromRGBO(255, 255, 255, 0.8),
     blur: 36,
     saturation: 2,
     borderColor: const Color.fromRGBO(255, 255, 255, 0.95),

@@ -2,8 +2,8 @@
 
 ## TODO
 
-- [ ] Add Bazar note 
-- [ ] Convert Bazar note to Expenses (Single click)
+- [x] Add Bazar note
+- [x] Convert Bazar note to Expenses (Single click)
 - [ ] Add Bangla language
 - [ ] Add dark theme
 - [ ] Export to Excel

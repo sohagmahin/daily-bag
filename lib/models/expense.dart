@@ -55,3 +55,29 @@ class ChartBar {
 }
 
 enum GroupMode { day, month }
+
+/// One line on the Bazar Note shopping list. [price] stays null until the
+/// shopper types one.
+@immutable
+class BazarItem {
+  const BazarItem({
+    required this.id,
+    required this.name,
+    this.price,
+    this.checked = false,
+  });
+
+  final int id;
+  final String name;
+  final double? price;
+
+  /// Ticked as bought.
+  final bool checked;
+
+  BazarItem copyWith({double? Function()? price, bool? checked}) => BazarItem(
+    id: id,
+    name: name,
+    price: price == null ? this.price : price(),
+    checked: checked ?? this.checked,
+  );
+}

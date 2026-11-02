@@ -18,6 +18,10 @@ enum LineGlyph {
   pencil,
   share,
   trash,
+  back,
+  tick,
+  clipboard,
+  bag,
 }
 
 class LineIcon extends StatelessWidget {
@@ -172,6 +176,44 @@ class _LineIconPainter extends CustomPainter {
           ..lineTo(7, 20)
           ..lineTo(17, 20)
           ..lineTo(18, 7);
+      case LineGlyph.back:
+        p
+          ..moveTo(15, 5)
+          ..lineTo(8, 12)
+          ..lineTo(15, 19);
+      case LineGlyph.tick:
+        p
+          ..moveTo(5, 12.5)
+          ..lineTo(9.5, 17)
+          ..lineTo(19, 7.5);
+      case LineGlyph.clipboard:
+        p
+          ..addRRect(RRect.fromLTRBR(5, 4, 19, 21, const Radius.circular(3)))
+          ..addRect(const Rect.fromLTRB(9, 3, 15, 6))
+          ..moveTo(8.5, 11)
+          ..lineTo(9.8, 12.3)
+          ..lineTo(12, 10)
+          ..moveTo(8.5, 16)
+          ..lineTo(9.8, 17.3)
+          ..lineTo(12, 15);
+        line(14, 11.5, 16, 11.5);
+        line(14, 16.5, 16, 16.5);
+      case LineGlyph.bag:
+        p
+          ..moveTo(5, 8)
+          ..lineTo(19, 8)
+          ..lineTo(17.8, 19)
+          ..arcToPoint(
+            const Offset(15.8, 20.8),
+            radius: const Radius.circular(2),
+          )
+          ..lineTo(8.2, 20.8)
+          ..arcToPoint(const Offset(6.2, 19), radius: const Radius.circular(2))
+          ..close()
+          ..moveTo(9, 8)
+          ..lineTo(9, 6.5)
+          ..arcToPoint(const Offset(15, 6.5), radius: const Radius.circular(3))
+          ..lineTo(15, 8);
     }
     return p;
   }

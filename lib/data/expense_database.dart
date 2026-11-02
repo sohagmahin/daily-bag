@@ -5,7 +5,7 @@ import '../app/format.dart';
 import '../models/expense.dart';
 
 /// On-device storage: one row per expense, one per day's Bazar thoughts,
-/// and a small settings table.
+/// the Bazar Note shopping list, and a small settings table.
 ///
 /// Days are written whole (delete then insert), which keeps the stored
 /// order identical to the diary and is cheap at a few rows per day.
@@ -29,7 +29,7 @@ class ExpenseDatabase {
     final db = await dbFactory.openDatabase(
       location,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onCreate: _create,
         onUpgrade: _upgrade,
       ),
@@ -39,6 +39,15 @@ class ExpenseDatabase {
 
   static const _thoughtsTable =
       'CREATE TABLE thoughts (day TEXT PRIMARY KEY, text TEXT NOT NULL)';
+
+  static const _bazarTable = '''
+    CREATE TABLE bazar_items (
+      id INTEGER PRIMARY KEY,
+      position INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      price_minor INTEGER,
+      checked INTEGER NOT NULL
+    )''';
 
   static Future<void> _create(Database db, int version) async {
     final batch = db.batch()
@@ -52,6 +61,7 @@ class ExpenseDatabase {
         )''')
       ..execute('CREATE INDEX expenses_by_day ON expenses (day, position)')
       ..execute(_thoughtsTable)
+      ..execute(_bazarTable)
       ..execute(
         'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
       );
@@ -61,6 +71,8 @@ class ExpenseDatabase {
   static Future<void> _upgrade(Database db, int from, int to) async {
     // v2: Bazar thoughts.
     if (from < 2) await db.execute(_thoughtsTable);
+    // v3: the Bazar Note shopping list.
+    if (from < 3) await db.execute(_bazarTable);
   }
 
   Future<List<DayNote>> loadDays() async {
@@ -108,6 +120,39 @@ class ExpenseDatabase {
           batch.insert('thoughts', {'day': key, 'text': note.thoughts});
         }
       });
+      await batch.commit(noResult: true);
+    });
+  }
+
+  Future<List<BazarItem>> loadBazar() async => [
+    for (final row in await _db.query('bazar_items', orderBy: 'position'))
+      BazarItem(
+        id: row['id']! as int,
+        name: row['name']! as String,
+        price: switch (row['price_minor']) {
+          final int minor => minor / 100,
+          _ => null,
+        },
+        checked: row['checked'] == 1,
+      ),
+  ];
+
+  /// Replaces the whole shopping list, atomically.
+  Future<void> writeBazar(List<BazarItem> items) {
+    return _db.transaction((txn) async {
+      final batch = txn.batch()..delete('bazar_items');
+      for (var i = 0; i < items.length; i++) {
+        final item = items[i];
+        batch.insert('bazar_items', {
+          'id': item.id,
+          'position': i,
+          'name': item.name,
+          'price_minor': item.price == null
+              ? null
+              : (item.price! * 100).round(),
+          'checked': item.checked ? 1 : 0,
+        });
+      }
       await batch.commit(noResult: true);
     });
   }

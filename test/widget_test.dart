@@ -2,9 +2,11 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:little_expense/app/format.dart';
 import 'package:little_expense/main.dart';
 import 'package:little_expense/models/expense.dart';
 import 'package:little_expense/screens/home/spend_chart.dart';
+import 'package:little_expense/state/bazar_store.dart';
 import 'package:little_expense/state/expense_draft.dart';
 import 'package:little_expense/state/expense_store.dart';
 
@@ -123,10 +125,42 @@ void main() {
     expect(day.thoughts, 'Salt was on offer.');
   });
 
+  group('BazarStore', () {
+    test('demo data matches the design', () {
+      final bazar = BazarStore.demo();
+      expect(bazar.boughtCount, 4);
+      expect(bazar.leftCount, 2);
+      expect(bazar.boughtTotal, 750);
+    });
+
+    test('moving bought items files them under the day', () {
+      final store = ExpenseStore.demo();
+      final bazar = BazarStore.demo();
+      final move = bazar.moveBought(store, date: DateTime(2026, 3, 2))!;
+
+      expect(move.count, 4);
+      expect(move.total, 750);
+      final day = store.dayFor(DateTime(2026, 3, 2))!;
+      expect(day.items.map((e) => e.name), [
+        'Rice',
+        'Lentils',
+        'Vegetables',
+        'Rice, 5 kg',
+        'Onion, 1 kg',
+        'Eggs, 1 dozen',
+        'Green chili',
+      ]);
+      expect(day.total, 950 + 750);
+      expect(bazar.items.map((x) => x.name), ['Hilsa fish', 'Bath soap']);
+      expect(bazar.moveBought(store, date: DateTime(2026, 3, 2)), isNull);
+    });
+  });
+
   group('home', () {
     Future<ExpenseStore> pumpHome(
       WidgetTester tester, [
       ExpenseStore? store,
+      BazarStore? bazar,
     ]) async {
       tester.platformDispatcher.accessibilityFeaturesTestValue =
           const FakeAccessibilityFeatures(disableAnimations: true);
@@ -138,8 +172,11 @@ void main() {
 
       store ??= ExpenseStore.demo();
       await tester.pumpWidget(
-        ChangeNotifierProvider.value(
-          value: store,
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: store),
+            ChangeNotifierProvider.value(value: bazar ?? BazarStore.demo()),
+          ],
           child: const LittleExpenseApp(),
         ),
       );
@@ -269,6 +306,48 @@ void main() {
       );
       expect(field.controller.text, startsWith('Beef was fresh today'));
       expect(field.focusNode.hasFocus, isTrue);
+    });
+
+    testWidgets('Bazar Note moves bought items into today', (tester) async {
+      final store = ExpenseStore.demo();
+      final bazar = BazarStore.demo();
+      await pumpHome(tester, store, bazar);
+
+      await tester.tap(
+        find.bySemanticsLabel('Bazar Note, 2 items left to buy'),
+      );
+      await settle(tester);
+      expect(find.text('Bazar Note'), findsOneWidget);
+      expect(find.text('4 of 6 bought'), findsOneWidget);
+      expect(find.text('৳750'), findsOneWidget);
+
+      await tester.enterText(find.byType(EditableText).first, 'Tea');
+      await tester.tap(find.bySemanticsLabel('Add item'));
+      await settle(tester);
+      expect(bazar.items.last.name, 'Tea');
+      expect(find.text('4 of 7 bought'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Mark bought: Tea'));
+      await tester.enterText(
+        // Tea is the last row, so its price is the last field.
+        find.byType(EditableText).last,
+        '40',
+      );
+      await settle(tester);
+      expect(find.text('৳790'), findsOneWidget);
+
+      await tester.tap(find.text('Move to Daily Bag'));
+      await settle(tester);
+      expect(find.text('Added to Daily Bag'), findsOneWidget);
+      final today = dateOnly(DateTime.now());
+      expect(store.dayFor(today)!.total, greaterThanOrEqualTo(790));
+      expect(bazar.items.map((x) => x.name), ['Hilsa fish', 'Bath soap']);
+
+      await tester.tap(find.text('View Daily Bag'));
+      await settle(tester);
+      await settle(tester);
+      expect(find.text('Fill the bag'), findsOneWidget);
+      expect(store.selectedDay, today);
     });
   });
 }
