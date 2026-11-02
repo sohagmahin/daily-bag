@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:excel/excel.dart';
@@ -32,6 +33,29 @@ void main() {
     expect('${rows[beefDay + 1][4]}', 'null');
     expect('${rows.last[0]}', 'Total');
     expect(num.parse('${rows.last[3]}'), 5470);
+  });
+
+  test('writing reports steady progress up to 100%', () async {
+    final dir = await Directory.systemTemp.createTemp('daily_bag_export');
+    addTearDown(() => dir.delete(recursive: true));
+    final seen = <double>[];
+    final file = await ExcelExport.write(
+      ExpenseStore.demo().days,
+      currency: 'BDT',
+      now: DateTime(2026, 11, 3),
+      into: dir,
+      onProgress: seen.add,
+    );
+
+    expect(file.path, endsWith('Daily-Bag-2026.xlsx'));
+    expect(await file.length(), greaterThan(0));
+    expect(seen.first, 0);
+    expect(seen.last, 1);
+    for (var i = 1; i < seen.length; i++) {
+      expect(seen[i], greaterThanOrEqualTo(seen[i - 1]));
+    }
+    // A step per day, plus encoding and saving.
+    expect(seen.length, ExpenseStore.demo().days.length + 3);
   });
 
   test('the export is named for the year', () {

@@ -1,13 +1,18 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../app/haptics.dart';
 import '../../app/motion.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../data/excel_export.dart';
 import '../../state/expense_store.dart';
@@ -34,7 +39,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _currencyOpen = false;
   String? _toast;
   Timer? _toastTimer;
-  final _exportKey = GlobalKey();
 
   @override
   void dispose() {
@@ -42,30 +46,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  Future<void> _export() async {
-    final days = context.read<ExpenseStore>().days;
-    final currency = context.read<SettingsStore>().currency;
-    final box = _exportKey.currentContext?.findRenderObject() as RenderBox?;
-    final origin = box == null
-        ? null
-        : box.localToGlobal(Offset.zero) & box.size;
-    final file = await ExcelExport.write(days, currency: currency.code);
-    final result = await SharePlus.instance.share(
-      ShareParams(
-        files: [
-          XFile(
-            file.path,
-            mimeType:
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          ),
-        ],
-        sharePositionOrigin: origin,
-      ),
-    );
-    if (!mounted || result.status != ShareResultStatus.success) return;
-    Haptics.play(HapticKind.success);
+  void _showExported(String fileName) {
     _toastTimer?.cancel();
-    setState(() => _toast = ExcelExport.fileName(DateTime.now()));
+    setState(() => _toast = fileName);
     _toastTimer = Timer(const Duration(milliseconds: 2600), () {
       if (mounted) setState(() => _toast = null);
     });
@@ -209,35 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 10),
                     _Group(
                       children: [
-                        LiquidPressable(
-                          key: _exportKey,
-                          onTap: _export,
-                          haptic: HapticKind.light,
-                          pressedScale: 0.98,
-                          borderRadius: 26,
-                          semanticLabel: '${s.export}, ${s.exportSub}',
-                          child: ExcludeSemantics(
-                            child: _Row(
-                              height: 64,
-                              padding: const EdgeInsets.fromLTRB(14, 0, 16, 0),
-                              tile: const _Tile(
-                                color: Color(0xFF1D9E52),
-                                glyph: LineGlyph.sheet,
-                              ),
-                              title: s.export,
-                              subtitle: s.exportSub,
-                              trailing: Opacity(
-                                opacity: 0.55,
-                                child: LineIcon(
-                                  LineGlyph.download,
-                                  size: 18,
-                                  strokeWidth: 2.2,
-                                  color: palette.label,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                        _ExportRow(strings: s, onExported: _showExported),
                       ],
                     ),
                     const SizedBox(height: 28),
@@ -313,11 +268,19 @@ class _Group extends StatelessWidget {
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({required this.color, required this.glyph, this.strokeWidth = 2});
+  const _Tile({
+    required this.color,
+    required this.glyph,
+    this.strokeWidth = 2,
+    this.child,
+  });
 
   final Color color;
   final LineGlyph glyph;
   final double strokeWidth;
+
+  /// Replaces the glyph, as the export spinner does.
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
@@ -329,12 +292,14 @@ class _Tile extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(9),
       ),
-      child: LineIcon(
-        glyph,
-        size: 17,
-        strokeWidth: strokeWidth,
-        color: AppColors.white,
-      ),
+      child:
+          child ??
+          LineIcon(
+            glyph,
+            size: 17,
+            strokeWidth: strokeWidth,
+            color: AppColors.white,
+          ),
     );
   }
 }
@@ -820,6 +785,311 @@ class _CurrencyOption extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Export to Excel". While the file is built the row fills with green
+/// glass from the left, a sheen sweeping through it, and the sheet icon
+/// becomes a spinner. The fill follows the export's real progress, eased so
+/// it never jumps and never finishes in a blink.
+class _ExportRow extends StatefulWidget {
+  const _ExportRow({required this.strings, required this.onExported});
+
+  final SettingsStrings strings;
+
+  /// The file was saved or sent from the share sheet.
+  final ValueChanged<String> onExported;
+
+  @override
+  State<_ExportRow> createState() => _ExportRowState();
+}
+
+class _ExportRowState extends State<_ExportRow>
+    with SingleTickerProviderStateMixin {
+  /// Even a tiny export takes this long on screen, so the fill reads.
+  static const _minimum = Duration(milliseconds: 1400);
+
+  late final Ticker _ticker;
+  final _shown = ValueNotifier(0.0);
+  final _elapsed = ValueNotifier(Duration.zero);
+  bool _busy = false;
+  double _done = 0;
+  Completer<void>? _filled;
+
+  @override
+  void initState() {
+    super.initState();
+    // Not lazy: first touching it in dispose() would need a live element.
+    _ticker = createTicker(_tick);
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    _shown.dispose();
+    _elapsed.dispose();
+    super.dispose();
+  }
+
+  void _tick(Duration elapsed) {
+    _elapsed.value = elapsed;
+    final k = (elapsed.inMicroseconds / _minimum.inMicroseconds).clamp(
+      0.0,
+      1.0,
+    );
+    // The design's ease-out (1 − (1 − k)^2.2), capped by the real work.
+    final paced = 1 - math.pow(1 - k, 2.2).toDouble();
+    final target = math.min(paced, _done);
+    // Glide toward the target so a jump in real progress stays smooth.
+    _shown.value += (target - _shown.value) * 0.35;
+    if (_done >= 1 && k >= 1 && _shown.value > 0.995) {
+      _shown.value = 1;
+      _filled?.complete();
+      _filled = null;
+    }
+  }
+
+  Future<void> _export() async {
+    final days = context.read<ExpenseStore>().days;
+    final currency = context.read<SettingsStore>().currency;
+    final box = context.findRenderObject() as RenderBox?;
+    final origin = box == null
+        ? null
+        : box.localToGlobal(Offset.zero) & box.size;
+
+    setState(() {
+      _busy = true;
+      _done = 0;
+      _shown.value = 0;
+      _filled = Completer();
+    });
+    _ticker.start();
+
+    final File file;
+    try {
+      file = await ExcelExport.write(
+        days,
+        currency: currency.code,
+        onProgress: (p) => _done = p,
+      );
+      await _filled?.future;
+    } catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'daily_bag',
+          context: ErrorDescription('while exporting to Excel'),
+        ),
+      );
+      Haptics.play(HapticKind.warning);
+      _finish();
+      return;
+    }
+    if (!mounted) return;
+    _finish();
+
+    final result = await SharePlus.instance.share(
+      ShareParams(
+        files: [
+          XFile(
+            file.path,
+            mimeType:
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          ),
+        ],
+        sharePositionOrigin: origin,
+      ),
+    );
+    if (!mounted || result.status != ShareResultStatus.success) return;
+    Haptics.play(HapticKind.success);
+    widget.onExported(p.basename(file.path));
+  }
+
+  void _finish() {
+    _ticker.stop();
+    _filled = null;
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.strings;
+    final palette = context.palette;
+    final row = _Row(
+      height: 68,
+      padding: const EdgeInsets.fromLTRB(14, 0, 16, 0),
+      tile: _Tile(
+        color: const Color(0xFF1D9E52),
+        glyph: LineGlyph.sheet,
+        child: _busy ? _Spinner(elapsed: _elapsed) : null,
+      ),
+      title: s.export,
+      subtitle: _busy ? s.preparing : s.exportSub,
+      trailing: _busy
+          ? const SizedBox.shrink()
+          : Opacity(
+              opacity: 0.55,
+              child: LineIcon(
+                LineGlyph.download,
+                size: 18,
+                strokeWidth: 2.2,
+                color: palette.label,
+              ),
+            ),
+    );
+
+    return ValueListenableBuilder<double>(
+      valueListenable: _shown,
+      builder: (context, shown, _) => Semantics(
+        button: true,
+        enabled: !_busy,
+        liveRegion: _busy,
+        label: '${s.export}, ${_busy ? s.preparing : s.exportSub}',
+        value: _busy ? '${digits((shown * 100).round())}%' : null,
+        child: LiquidPressable(
+          onTap: _busy ? null : _export,
+          haptic: HapticKind.light,
+          pressedScale: 0.98,
+          borderRadius: 26,
+          child: ExcludeSemantics(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(26),
+              child: Stack(
+                children: [
+                  row,
+                  if (_busy)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: _ExportFill(progress: shown, elapsed: _elapsed),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The glass bar itself: tinted, lit along its top, edged where it is
+/// growing, with a soft sheen gliding through.
+class _ExportFill extends StatelessWidget {
+  const _ExportFill({required this.progress, required this.elapsed});
+
+  final double progress;
+  final ValueListenable<Duration> elapsed;
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.palette.glass;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        widthFactor: progress.clamp(0.0, 1.0),
+        heightFactor: 1,
+        child: LiquidBox(
+          style: glass.exportFill,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ValueListenableBuilder<Duration>(
+                  valueListenable: elapsed,
+                  builder: (context, t, _) {
+                    // 7% of the bar every 60ms, over a 260% sweep.
+                    final travel = (t.inMilliseconds / 60 * 7) % 260 - 130;
+                    return FractionalTranslation(
+                      translation: Offset(travel / 100, 0),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            // CSS 105deg: left to right, tipped slightly down.
+                            begin: const Alignment(-1, -0.27),
+                            end: const Alignment(1, 0.27),
+                            stops: const [0.3, 0.5, 0.7],
+                            colors: [
+                              glass.exportSheen.withValues(alpha: 0),
+                              glass.exportSheen,
+                              glass.exportSheen.withValues(alpha: 0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Align(
+                alignment: Alignment.topCenter,
+                child: FractionallySizedBox(
+                  heightFactor: 0.45,
+                  widthFactor: 1,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          glass.exportTop,
+                          glass.exportTop.withValues(alpha: 0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(
+                  width: 1.5,
+                  child: ColoredBox(color: glass.exportEdge),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A white ring with a turning quarter arc, in the sheet tile's place.
+class _Spinner extends StatelessWidget {
+  const _Spinner({required this.elapsed});
+
+  final ValueListenable<Duration> elapsed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Duration>(
+      valueListenable: elapsed,
+      builder: (context, t, child) => Transform.rotate(
+        // 24° every 60ms, as in the design.
+        angle: t.inMilliseconds / 60 * 24 * math.pi / 180,
+        child: child,
+      ),
+      child: const SizedBox.square(
+        dimension: 18,
+        child: Stack(
+          children: [
+            LineIcon(
+              LineGlyph.spinnerTrack,
+              size: 18,
+              strokeWidth: 2.6,
+              color: Color.fromRGBO(255, 255, 255, 0.3),
+            ),
+            LineIcon(
+              LineGlyph.spinnerArc,
+              size: 18,
+              strokeWidth: 2.6,
+              color: AppColors.white,
+            ),
+          ],
         ),
       ),
     );

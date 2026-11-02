@@ -16,6 +16,18 @@ abstract final class ExcelExport {
   static String fileName(DateTime now) => 'Daily-Bag-${now.year}.xlsx';
 
   static List<int> workbook(List<DayNote> days, {required String currency}) {
+    final out = _Workbook();
+    _build(days, currency, out).forEach((_) {});
+    return out.bytes!;
+  }
+
+  /// Builds the sheet a day at a time, yielding how far along it is (0–1,
+  /// encoding included) so a caller can report progress and stay responsive.
+  static Iterable<double> _build(
+    List<DayNote> days,
+    String currency,
+    _Workbook out,
+  ) sync* {
     final excel = Excel.createExcel();
     excel.rename(excel.getDefaultSheet()!, _sheet);
     final bold = CellStyle(bold: true);
@@ -46,7 +58,9 @@ abstract final class ExcelExport {
     ], strong: true);
 
     var total = 0.0;
-    for (final day in days) {
+    for (var d = 0; d < days.length; d++) {
+      final day = days[d];
+      yield _rowsShare * d / days.length;
       final date = DateCellValue(
         year: day.date.year,
         month: day.date.month,
@@ -77,18 +91,44 @@ abstract final class ExcelExport {
       DoubleCellValue(total),
       null,
     ], strong: true);
+    yield _rowsShare;
 
-    return excel.encode()!;
+    out.bytes = excel.encode()!;
+    yield 1;
   }
 
+  /// Rows take most of the work; encoding the zip takes the rest.
+  static const _rowsShare = 0.8;
+
   /// Writes the workbook to a temporary file, ready to share.
+  ///
+  /// [onProgress] hears 0–1 as the sheet is built, encoded and saved. The
+  /// work pauses for a frame every few milliseconds so the UI can animate.
   static Future<File> write(
     List<DayNote> days, {
     required String currency,
     DateTime? now,
+    void Function(double progress)? onProgress,
+    Directory? into,
   }) async {
-    final dir = await getTemporaryDirectory();
+    final out = _Workbook();
+    final slice = Stopwatch()..start();
+    for (final step in _build(days, currency, out)) {
+      // Saving the file is the last 5%.
+      onProgress?.call(step * 0.95);
+      if (slice.elapsedMilliseconds > 8) {
+        await Future<void>.delayed(Duration.zero);
+        slice.reset();
+      }
+    }
+    final dir = into ?? await getTemporaryDirectory();
     final file = File(p.join(dir.path, fileName(now ?? DateTime.now())));
-    return file.writeAsBytes(workbook(days, currency: currency), flush: true);
+    await file.writeAsBytes(out.bytes!, flush: true);
+    onProgress?.call(1);
+    return file;
   }
+}
+
+class _Workbook {
+  List<int>? bytes;
 }

@@ -75,6 +75,7 @@ Color _greyLabel(double a) => Color.fromRGBO(60, 60, 67, a);
 Color _paleLabel(double a) => Color.fromRGBO(235, 235, 245, a);
 Color _greyFill(double a) => Color.fromRGBO(118, 118, 128, a);
 Color _blue(double a) => Color.fromRGBO(10, 132, 255, a);
+Color _green(double a) => Color.fromRGBO(52, 199, 89, a);
 
 CssShadow _rim(double alpha) => CssShadow.inset(dy: 1, color: _white(alpha));
 
@@ -316,6 +317,10 @@ class GlassSet {
     required this.settingsCard,
     required this.settingsButton,
     required this.toast,
+    required this.exportFill,
+    required this.exportEdge,
+    required this.exportSheen,
+    required this.exportTop,
     required double primaryBorder,
     required double primaryRim,
   }) : _primaryBorder = primaryBorder,
@@ -356,6 +361,13 @@ class GlassSet {
   final GlassStyle settingsCard;
   final GlassStyle settingsButton;
   final GlassStyle toast;
+
+  /// The green glass that fills the export row as the file is built: its
+  /// leading edge, the sheen that sweeps through it, and its top light.
+  final GlassStyle exportFill;
+  final Color exportEdge;
+  final Color exportSheen;
+  final Color exportTop;
 
   final double _primaryBorder;
   final double _primaryRim;
@@ -624,6 +636,21 @@ class GlassSet {
         CssShadow(dy: 16, blur: 36, color: _slate(0.22)),
       ],
     ),
+    exportFill: GlassStyle(
+      radius: 0,
+      color: _green(0.18),
+      blur: 0.75,
+      saturation: 1.7,
+      borderWidth: 0,
+      shadows: [
+        _rim(0.9),
+        CssShadow.inset(dy: -1, color: _green(0.18)),
+        CssShadow(dx: 6, blur: 14, color: _green(0.14)),
+      ],
+    ),
+    exportEdge: _white(0.95),
+    exportSheen: _white(0.55),
+    exportTop: _white(0.45),
     primaryBorder: 0.45,
     primaryRim: 0.55,
   );
@@ -821,6 +848,21 @@ class GlassSet {
           CssShadow(dy: 16, blur: 36, color: _slate(0.22)),
         ],
       ),
+      exportFill: GlassStyle(
+        radius: 0,
+        color: _green(0.24),
+        blur: 0.75,
+        saturation: 1.7,
+        borderWidth: 0,
+        shadows: [
+          _rim(0.22),
+          CssShadow.inset(dy: -1, color: _black(0.25)),
+          CssShadow(dx: 6, blur: 14, color: _green(0.18)),
+        ],
+      ),
+      exportEdge: _white(0.38),
+      exportSheen: _white(0.18),
+      exportTop: _white(0.10),
       primaryBorder: 0.35,
       primaryRim: 0.5,
     );

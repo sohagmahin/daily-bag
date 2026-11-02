@@ -31,6 +31,8 @@ enum LineGlyph {
   gear,
   chevronDown,
   info,
+  spinnerTrack,
+  spinnerArc,
 }
 
 class LineIcon extends StatelessWidget {
@@ -253,6 +255,10 @@ class _LineIconPainter extends CustomPainter {
         svgPath(p, 'M4 9h16M4 15h16M10 9v12');
       case LineGlyph.download:
         svgPath(p, 'M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14');
+      case LineGlyph.spinnerTrack:
+        p.addOval(Rect.fromCircle(center: const Offset(12, 12), radius: 8));
+      case LineGlyph.spinnerArc:
+        svgPath(p, 'M12 4a8 8 0 0 1 8 8');
       case LineGlyph.chevronDown:
         svgPath(p, 'M6 9l6 6 6-6');
       case LineGlyph.info:

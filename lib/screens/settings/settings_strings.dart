@@ -16,6 +16,7 @@ class SettingsStrings {
     required this.data,
     required this.export,
     required this.exportSub,
+    required this.preparing,
     required this.version,
     required String exportedPrefix,
     required String exportedSuffix,
@@ -44,6 +45,9 @@ class SettingsStrings {
   final String data;
   final String export;
   final String exportSub;
+
+  /// The export row's subtitle while the file is built.
+  final String preparing;
   final String version;
   final String _exportedPrefix;
   final String _exportedSuffix;
@@ -73,6 +77,7 @@ class SettingsStrings {
     data: 'Data',
     export: 'Export to Excel',
     exportSub: 'All expenses as an .xlsx file',
+    preparing: 'Preparing your file…',
     version: 'Daily Bag · Version 1.0',
     exportedPrefix: 'Saved ',
     exportedSuffix: '',
@@ -99,6 +104,7 @@ class SettingsStrings {
     data: 'ডেটা',
     export: 'এক্সেলে এক্সপোর্ট',
     exportSub: 'সব খরচ একটি .xlsx ফাইলে',
+    preparing: 'ফাইল তৈরি হচ্ছে…',
     version: 'ডেইলি ব্যাগ · ভার্সন ১.০',
     exportedPrefix: '',
     exportedSuffix: ' সেভ হয়েছে',
