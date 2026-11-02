@@ -9,6 +9,7 @@
 - [x] Export to Excel
 - [x] Setting : Currency Setup
 - [x] Turn ON/OFF haptic
+- [ ] Github start based timeline 
 
 ## Install on iPhone
 
