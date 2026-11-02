@@ -21,6 +21,7 @@ import '../../widgets/liquid_pressable.dart';
 import '../add_expense/add_expense_sheet.dart';
 import '../bazar_note/bazar_note_screen.dart';
 import '../menu/view_menu.dart';
+import '../scan/scan_screen.dart';
 import '../thoughts/thoughts_popover.dart';
 import 'spend_chart.dart';
 import 'summary_card.dart';
@@ -73,6 +74,14 @@ class _HomeScreenState extends State<HomeScreen> {
         focusThoughts: focusThoughts,
       ),
     );
+    if (saved != null) _reveal(saved);
+  }
+
+  /// Opens "Scan to fill"; shows the day the scanned items went into.
+  Future<void> _openScanner() async {
+    final saved = await Navigator.of(
+      context,
+    ).push(ScanScreen.route(onTypeInstead: _openDiary));
     if (saved != null) _reveal(saved);
   }
 
@@ -246,7 +255,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Entrance(
               delay: const Duration(milliseconds: 320),
               offset: 40,
-              child: _AddButton(onTap: _openDiary),
+              child: Row(
+                children: [
+                  Expanded(child: _AddButton(onTap: _openDiary)),
+                  const SizedBox(width: 10),
+                  _ScanButton(onTap: _openScanner),
+                ],
+              ),
             ),
           ),
         ],
@@ -662,6 +677,30 @@ class _AddButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The round glass button beside "Fill the bag" that opens the scanner.
+class _ScanButton extends StatelessWidget {
+  const _ScanButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return LiquidPressable(
+      onTap: onTap,
+      haptic: HapticKind.medium,
+      pressedScale: 0.9,
+      borderRadius: 29,
+      semanticLabel: tr.scanWithCamera,
+      child: LiquidBox(
+        style: context.palette.glass.scanButton,
+        width: 56,
+        height: 56,
+        child: const Center(child: LineIcon(LineGlyph.scan, size: 24)),
       ),
     );
   }

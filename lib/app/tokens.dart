@@ -123,6 +123,11 @@ class Palette {
     required this.segmentOn,
     required this.panelEdge,
     required this.optionRing,
+    required this.offLabel,
+    required this.offRing,
+    required this.rowDivider,
+    required this.warnLabel,
+    required this.warnTint,
     required this.glass,
   });
 
@@ -176,6 +181,14 @@ class Palette {
   /// Settings' currency panel: its rim and the empty radio rings.
   final Color panelEdge;
   final Color optionRing;
+
+  /// Scan review: a line left out, its empty tick ring, the hairline
+  /// between lines, and the orange "Check the price" badge.
+  final Color offLabel;
+  final Color offRing;
+  final Color rowDivider;
+  final Color warnLabel;
+  final Color warnTint;
   final GlassSet glass;
 
   static final light = Palette._(
@@ -218,6 +231,11 @@ class Palette {
     segmentOn: _white(0.96),
     panelEdge: _white(0.6),
     optionRing: _greyLabel(0.28),
+    offLabel: _greyLabel(0.45),
+    offRing: _greyLabel(0.3),
+    rowDivider: _greyLabel(0.10),
+    warnLabel: const Color(0xFFB25000),
+    warnTint: const Color.fromRGBO(255, 149, 0, 0.16),
     glass: GlassSet._light(),
   );
 
@@ -261,6 +279,11 @@ class Palette {
     segmentOn: const Color.fromRGBO(110, 110, 118, 0.85),
     panelEdge: _white(0.06),
     optionRing: _paleLabel(0.3),
+    offLabel: _paleLabel(0.4),
+    offRing: _paleLabel(0.3),
+    rowDivider: const Color.fromRGBO(84, 84, 88, 0.4),
+    warnLabel: const Color(0xFFFFB340),
+    warnTint: const Color.fromRGBO(255, 149, 0, 0.2),
     glass: GlassSet._dark(),
   );
 
@@ -321,6 +344,9 @@ class GlassSet {
     required this.exportEdge,
     required this.exportSheen,
     required this.exportTop,
+    required this.scanButton,
+    required this.scanSheet,
+    required this.scanList,
     required double primaryBorder,
     required double primaryRim,
   }) : _primaryBorder = primaryBorder,
@@ -368,6 +394,13 @@ class GlassSet {
   final Color exportEdge;
   final Color exportSheen;
   final Color exportTop;
+
+  /// The day view's round "Scan to fill" button.
+  final GlassStyle scanButton;
+
+  /// The "Found n items" sheet over the camera, and its list card.
+  final GlassStyle scanSheet;
+  final GlassStyle scanList;
 
   final double _primaryBorder;
   final double _primaryRim;
@@ -651,6 +684,37 @@ class GlassSet {
     exportEdge: _white(0.95),
     exportSheen: _white(0.55),
     exportTop: _white(0.45),
+    scanButton: GlassStyle(
+      radius: 28,
+      color: _white(0.62),
+      blur: 24,
+      saturation: 1.8,
+      borderColor: _white(0.85),
+      shadows: [
+        _rim(0.88),
+        CssShadow(dy: 10, blur: 24, color: _navy(0.14)),
+      ],
+    ),
+    scanSheet: GlassStyle(
+      radius: 38,
+      color: const Color.fromRGBO(246, 248, 252, 0.86),
+      blur: 40,
+      saturation: 2,
+      borderColor: _white(0.9),
+      shadows: [
+        _rim(1),
+        CssShadow(dy: -10, blur: 40, color: _black(0.3)),
+      ],
+    ),
+    scanList: GlassStyle(
+      radius: 22,
+      color: _white(0.7),
+      borderColor: _white(0.95),
+      shadows: [
+        _rim(1),
+        CssShadow(dy: 4, blur: 14, color: _navy(0.06)),
+      ],
+    ),
     primaryBorder: 0.45,
     primaryRim: 0.55,
   );
@@ -863,6 +927,37 @@ class GlassSet {
       exportEdge: _white(0.38),
       exportSheen: _white(0.18),
       exportTop: _white(0.10),
+      scanButton: GlassStyle(
+        radius: 28,
+        color: glassStrong,
+        blur: 24,
+        saturation: 1.8,
+        borderColor: _white(0.16),
+        shadows: [
+          _rim(0.10),
+          CssShadow(dy: 10, blur: 24, color: _black(0.5)),
+        ],
+      ),
+      scanSheet: GlassStyle(
+        radius: 38,
+        color: const Color.fromRGBO(26, 27, 34, 0.86),
+        blur: 40,
+        saturation: 2,
+        borderColor: _white(0.12),
+        shadows: [
+          _rim(0.10),
+          CssShadow(dy: -10, blur: 40, color: _black(0.3)),
+        ],
+      ),
+      scanList: GlassStyle(
+        radius: 22,
+        color: fieldColor,
+        borderColor: _white(0.12),
+        shadows: [
+          _rim(0.10),
+          CssShadow(dy: 4, blur: 14, color: _black(0.3)),
+        ],
+      ),
       primaryBorder: 0.35,
       primaryRim: 0.5,
     );

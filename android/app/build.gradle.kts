@@ -42,3 +42,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // "Scan to fill": on-device text recognition, bundled with the app.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+}

@@ -33,6 +33,12 @@ enum LineGlyph {
   info,
   spinnerTrack,
   spinnerArc,
+  scan,
+  close,
+  flash,
+  photo,
+  retake,
+  alert,
 }
 
 class LineIcon extends StatelessWidget {
@@ -42,6 +48,7 @@ class LineIcon extends StatelessWidget {
     this.size = 20,
     this.strokeWidth = 2,
     this.color,
+    this.fill,
   });
 
   final LineGlyph glyph;
@@ -50,6 +57,9 @@ class LineIcon extends StatelessWidget {
 
   /// Defaults to the palette's label colour.
   final Color? color;
+
+  /// Paints the shape's inside too (the lit flash bolt).
+  final Color? fill;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +70,7 @@ class LineIcon extends StatelessWidget {
           glyph,
           strokeWidth,
           color ?? context.palette.label,
+          fill,
         ),
       ),
     );
@@ -67,11 +78,12 @@ class LineIcon extends StatelessWidget {
 }
 
 class _LineIconPainter extends CustomPainter {
-  _LineIconPainter(this.glyph, this.strokeWidth, this.color);
+  _LineIconPainter(this.glyph, this.strokeWidth, this.color, this.fill);
 
   final LineGlyph glyph;
   final double strokeWidth;
   final Color color;
+  final Color? fill;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -82,7 +94,9 @@ class _LineIconPainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(_path(glyph), paint);
+    final path = _path(glyph);
+    if (fill != null) canvas.drawPath(path, Paint()..color = fill!);
+    canvas.drawPath(path, paint);
   }
 
   static Path _path(LineGlyph glyph) {
@@ -259,6 +273,27 @@ class _LineIconPainter extends CustomPainter {
         p.addOval(Rect.fromCircle(center: const Offset(12, 12), radius: 8));
       case LineGlyph.spinnerArc:
         svgPath(p, 'M12 4a8 8 0 0 1 8 8');
+      case LineGlyph.scan:
+        svgPath(
+          p,
+          'M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2'
+          'M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2'
+          'M8 9h8M8 12h8M8 15h5',
+        );
+      case LineGlyph.close:
+        svgPath(p, 'M6 6l12 12M18 6L6 18');
+      case LineGlyph.flash:
+        svgPath(p, 'M13 2L4 14h7l-1 8 9-12h-7z');
+      case LineGlyph.photo:
+        p
+          ..addRRect(RRect.fromLTRBR(3, 5, 21, 19, const Radius.circular(3)))
+          ..addOval(Rect.fromCircle(center: const Offset(9, 10), radius: 1.6));
+        svgPath(p, 'M21 16l-5-5-8 8');
+      case LineGlyph.retake:
+        svgPath(p, 'M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4');
+      case LineGlyph.alert:
+        p.addOval(Rect.fromCircle(center: const Offset(12, 12), radius: 9));
+        svgPath(p, 'M12 8v5M12 16.5h.01');
       case LineGlyph.chevronDown:
         svgPath(p, 'M6 9l6 6 6-6');
       case LineGlyph.info:
@@ -286,7 +321,8 @@ class _LineIconPainter extends CustomPainter {
   bool shouldRepaint(_LineIconPainter old) =>
       old.glyph != glyph ||
       old.strokeWidth != strokeWidth ||
-      old.color != color;
+      old.color != color ||
+      old.fill != fill;
 }
 
 final _svgToken = RegExp(r'[MmLlHhVvCcSsAaZz]|-?(?:\d+\.?\d*|\.\d+)');

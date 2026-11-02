@@ -76,6 +76,24 @@ class Strings {
     required this.addedToDailyBag,
     required this.viewDailyBag,
     required this.keepListing,
+    required this.scanToFill,
+    required this.scanWithCamera,
+    required this.closeScanner,
+    required this.flash,
+    required this.whatAreYouScanning,
+    required this.receipt,
+    required this.writtenList,
+    required this.fitReceipt,
+    required this.fitList,
+    required this.readingItems,
+    required this.noItemsFound,
+    required this.noCamera,
+    required this.choosePhoto,
+    required this.scan,
+    required this.typeInstead,
+    required this.checkPrice,
+    required this.fromWrittenList,
+    required this.retake,
     required bool isBangla,
   }) : _isBn = isBangla;
 
@@ -132,6 +150,24 @@ class Strings {
   final String addedToDailyBag;
   final String viewDailyBag;
   final String keepListing;
+  final String scanToFill;
+  final String scanWithCamera;
+  final String closeScanner;
+  final String flash;
+  final String whatAreYouScanning;
+  final String receipt;
+  final String writtenList;
+  final String fitReceipt;
+  final String fitList;
+  final String readingItems;
+  final String noItemsFound;
+  final String noCamera;
+  final String choosePhoto;
+  final String scan;
+  final String typeInstead;
+  final String checkPrice;
+  final String fromWrittenList;
+  final String retake;
 
   /// `3 items`, `৩টি আইটেম`.
   String items(int n) =>
@@ -186,6 +222,18 @@ class Strings {
       ? '${digits(n)}টি আইটেম · $money আজকের খরচে যোগ হয়েছে। বাকি আইটেম বাজার নোটে থাকবে।'
       : '${items(n)} · $money added to today’s expenses. '
             'Unticked items stay in your Bazar Note.';
+
+  String foundItems(int n) => _isBn
+      ? '${digits(n)}টি আইটেম পাওয়া গেছে'
+      : 'Found $n ${n == 1 ? 'item' : 'items'}';
+
+  String fromReceipt(String? store) => _isBn
+      ? (store == null ? 'রশিদ থেকে' : 'রশিদ থেকে · $store')
+      : (store == null ? 'From receipt' : 'From receipt · $store');
+
+  String leaveOut(String name) => _isBn ? 'বাদ দিন: $name' : 'Leave out: $name';
+
+  String include(String name) => _isBn ? 'যোগ করুন: $name' : 'Include: $name';
 
   /// `২০ ফেব্রুয়ারি` → `২০ ফেব্রুয়ারির`, `২ মার্চ` → `২ মার্চের`.
   static String _genitive(String word) =>
@@ -244,6 +292,24 @@ class Strings {
     addedToDailyBag: 'Added to Daily Bag',
     viewDailyBag: 'View Daily Bag',
     keepListing: 'Keep listing',
+    scanToFill: 'Scan to fill',
+    scanWithCamera: 'Scan a receipt or list with the camera',
+    closeScanner: 'Close scanner',
+    flash: 'Flash',
+    whatAreYouScanning: 'What are you scanning?',
+    receipt: 'Receipt',
+    writtenList: 'Written list',
+    fitReceipt: 'Fit the receipt inside the frame',
+    fitList: 'Fit your written list inside the frame',
+    readingItems: 'Reading items…',
+    noItemsFound: 'No items found. Try closer, in good light.',
+    noCamera: 'Camera unavailable. Choose a photo instead.',
+    choosePhoto: 'Choose a photo',
+    scan: 'Scan',
+    typeInstead: 'Type it instead',
+    checkPrice: 'Check the price',
+    fromWrittenList: 'From your written list',
+    retake: 'Retake',
   );
 
   static const _bn = Strings._(
@@ -299,5 +365,23 @@ class Strings {
     addedToDailyBag: 'ডেইলি ব্যাগে যোগ হয়েছে',
     viewDailyBag: 'ডেইলি ব্যাগ দেখুন',
     keepListing: 'তালিকা চালিয়ে যান',
+    scanToFill: 'স্ক্যান করে ভরুন',
+    scanWithCamera: 'ক্যামেরায় রশিদ বা তালিকা স্ক্যান করুন',
+    closeScanner: 'স্ক্যানার বন্ধ করুন',
+    flash: 'ফ্ল্যাশ',
+    whatAreYouScanning: 'কী স্ক্যান করছেন?',
+    receipt: 'রশিদ',
+    writtenList: 'লেখা তালিকা',
+    fitReceipt: 'রশিদটি ফ্রেমের ভেতরে রাখুন',
+    fitList: 'লেখা তালিকাটি ফ্রেমের ভেতরে রাখুন',
+    readingItems: 'আইটেম পড়া হচ্ছে…',
+    noItemsFound: 'কোনো আইটেম পাওয়া যায়নি। আরও কাছে, ভালো আলোতে চেষ্টা করুন।',
+    noCamera: 'ক্যামেরা চালু হয়নি। একটি ছবি বাছুন।',
+    choosePhoto: 'ছবি বাছুন',
+    scan: 'স্ক্যান',
+    typeInstead: 'হাতে লিখুন',
+    checkPrice: 'দাম দেখে নিন',
+    fromWrittenList: 'আপনার লেখা তালিকা থেকে',
+    retake: 'আবার তুলুন',
   );
 }

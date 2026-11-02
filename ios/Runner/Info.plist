@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Daily Bag uses the camera to read the items and prices on a receipt or your written list.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Daily Bag reads the items and prices in a photo of a receipt or your written list.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
