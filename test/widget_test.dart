@@ -128,6 +128,14 @@ void main() {
     expect(day.thoughts, 'Salt was on offer.');
   });
 
+  test('each currency writes amounts its own way', () {
+    expect(Currency.bdt.format(1220), '৳1,220');
+    expect(Currency.bdt.format(1220000), '৳12,20,000');
+    expect(Currency.inr.format(12.5), '₹12.50');
+    expect(Currency.usd.format(1220), r'$1,220.00');
+    expect(Currency.eur.format(1220000), '€1,220,000.00');
+  });
+
   group('BazarStore', () {
     test('demo data matches the design', () {
       final bazar = BazarStore.demo();
@@ -370,7 +378,7 @@ void main() {
       await tester.tap(find.text('Settings'));
       await settle(tester);
       expect(find.text('APPEARANCE'), findsOneWidget);
-      expect(find.text('৳ BDT'), findsOneWidget);
+      expect(find.bySemanticsLabel('Currency, BDT'), findsOneWidget);
 
       Palette palette() =>
           PaletteScope.of(tester.element(find.text('APPEARANCE')));
@@ -380,12 +388,23 @@ void main() {
       expect(settings.theme, ThemeChoice.dark);
       expect(palette().isDark, isTrue);
 
-      await tester.tap(find.text('৳ BDT'));
+      await tester.tap(find.bySemanticsLabel('Currency, BDT'));
       await settle(tester);
+      // Each option previews its own format.
+      expect(find.text('BDT · ৳1,220'), findsOneWidget);
+      expect(find.text(r'USD · $1,220.00'), findsOneWidget);
+      expect(
+        find.text(
+          'Only the symbol and format change. Your amounts aren’t converted.',
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.text('US Dollar'));
       await settle(tester);
       expect(settings.currency, Currency.usd);
-      expect(find.text(r'$ USD'), findsOneWidget);
+      // The panel stays open, and the header pill follows the choice.
+      expect(find.text('USD'), findsOneWidget);
+      expect(find.text('Euro'), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('Haptic feedback').last);
       await settle(tester);
@@ -403,11 +422,13 @@ void main() {
       expect(find.text('ব্যাগ ভরুন'), findsOneWidget);
       expect(find.text('ডেইলি ব্যাগ'), findsOneWidget);
       expect(find.text('ফেব্রুয়ারি ২০২৬'), findsOneWidget);
-      expect(find.text(r'$১,২২০'), findsWidgets);
+      expect(find.text(r'$১,২২০.০০'), findsWidgets);
       expect(find.textContaining('৳'), findsNothing);
     });
-  
-    testWidgets('leaving Settings with the currency list open is safe', (tester) async {
+
+    testWidgets('leaving Settings with the currency list open is safe', (
+      tester,
+    ) async {
       await pumpHome(tester);
       await tester.tap(find.bySemanticsLabel('View options'));
       await settle(tester);
@@ -415,7 +436,7 @@ void main() {
       await settle(tester);
       await tester.tap(find.text('Dark'));
       await settle(tester);
-      await tester.tap(find.text('৳ BDT'));
+      await tester.tap(find.bySemanticsLabel('Currency, BDT'));
       await settle(tester);
       await tester.tap(find.bySemanticsLabel('Back'));
       await settle(tester);

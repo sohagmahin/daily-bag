@@ -179,10 +179,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           open: _currencyOpen,
                           onToggle: () =>
                               setState(() => _currencyOpen = !_currencyOpen),
-                          onPick: (c) {
-                            settings.currency = c;
-                            setState(() => _currencyOpen = false);
-                          },
+                          // The panel stays open so the sample amounts can
+                          // be compared.
+                          onPick: (c) => settings.currency = c,
                         ),
                         _Row(
                           height: 64,
@@ -500,47 +499,44 @@ class _CurrencyRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LiquidPressable(
-            onTap: onToggle,
-            haptic: HapticKind.light,
-            pressedScale: 0.98,
-            borderRadius: 26,
-            semanticLabel:
-                '${strings.currency}, ${current.symbol} ${current.code}',
-            child: ExcludeSemantics(
-              child: _Row(
-                height: 58,
-                padding: const EdgeInsets.fromLTRB(14, 0, 16, 0),
-                tile: const _Tile(
-                  color: AppColors.green,
-                  glyph: LineGlyph.cash,
-                ),
-                title: strings.currency,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${current.symbol} ${current.code}',
-                      style: AppText.body.copyWith(
-                        color: palette.secondaryLabel,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    AnimatedRotation(
-                      turns: open ? 0.25 : 0,
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOut,
-                      child: Opacity(
-                        opacity: 0.45,
-                        child: LineIcon(
-                          LineGlyph.chevronRight,
-                          size: 14,
-                          strokeWidth: 2.6,
-                          color: palette.label,
+          Semantics(
+            expanded: open,
+            child: LiquidPressable(
+              onTap: onToggle,
+              haptic: HapticKind.light,
+              pressedScale: 0.98,
+              borderRadius: 26,
+              semanticLabel: '${strings.currency}, ${current.code}',
+              child: ExcludeSemantics(
+                child: _Row(
+                  height: 60,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  tile: const _Tile(
+                    color: AppColors.green,
+                    glyph: LineGlyph.cash,
+                  ),
+                  title: strings.currency,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _CurrencyPill(currency: current),
+                      const SizedBox(width: 12),
+                      AnimatedRotation(
+                        turns: open ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: _Switch._overshoot,
+                        child: Opacity(
+                          opacity: 0.5,
+                          child: LineIcon(
+                            LineGlyph.chevronDown,
+                            size: 16,
+                            strokeWidth: 2.6,
+                            color: palette.label,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -550,26 +546,124 @@ class _CurrencyRow extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
               child: Entrance(
                 offset: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: palette.segmentFill,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Column(
-                    children: [
-                      for (final c in Currency.values)
-                        _CurrencyOption(
-                          currency: c,
-                          name: strings.currencyName(c),
-                          selected: c == current,
-                          onTap: () => onPick(c),
-                        ),
-                    ],
-                  ),
+                child: _CurrencyPanel(
+                  strings: strings,
+                  current: current,
+                  onPick: onPick,
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The chosen currency beside the row title: its badge and code.
+class _CurrencyPill extends StatelessWidget {
+  const _CurrencyPill({required this.currency});
+
+  final Currency currency;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.fromLTRB(4, 0, 10, 0),
+      decoration: BoxDecoration(
+        color: context.palette.segmentFill,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: currency.color,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              currency.symbol,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.white,
+              ),
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(currency.code, style: AppText.subheadBold),
+        ],
+      ),
+    );
+  }
+}
+
+class _CurrencyPanel extends StatelessWidget {
+  const _CurrencyPanel({
+    required this.strings,
+    required this.current,
+    required this.onPick,
+  });
+
+  final SettingsStrings strings;
+  final Currency current;
+  final ValueChanged<Currency> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: palette.segmentFill,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: palette.panelEdge),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final c in Currency.values) ...[
+            if (c != Currency.values.first) const SizedBox(height: 2),
+            _CurrencyOption(
+              currency: c,
+              name: strings.currencyName(c),
+              selected: c == current,
+              onTap: () => onPick(c),
+            ),
+          ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: LineIcon(
+                    LineGlyph.info,
+                    size: 15,
+                    color: palette.secondaryLabel,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    strings.currencyNote,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 17 / 12,
+                      color: palette.secondaryLabel,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -584,6 +678,9 @@ class _CurrencyOption extends StatelessWidget {
     required this.onTap,
   });
 
+  /// What every option shows as its sample amount.
+  static const _sample = 1220.0;
+
   final Currency currency;
   final String name;
   final bool selected;
@@ -592,6 +689,7 @@ class _CurrencyOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final glow = currency.color.withValues(alpha: 0.35);
     return Semantics(
       inMutuallyExclusiveGroup: true,
       checked: selected,
@@ -599,39 +697,126 @@ class _CurrencyOption extends StatelessWidget {
         onTap: onTap,
         haptic: HapticKind.selection,
         pressedScale: 0.97,
-        borderRadius: 14,
+        borderRadius: 16,
         semanticLabel: '$name, ${currency.code}',
         child: ExcludeSemantics(
-          child: Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            constraints: const BoxConstraints(minHeight: 60),
+            padding: const EdgeInsets.fromLTRB(10, 0, 12, 0),
             decoration: BoxDecoration(
-              color: selected ? palette.segmentOn : null,
-              borderRadius: BorderRadius.circular(14),
+              color: selected
+                  ? palette.segmentOn
+                  : palette.segmentOn.withValues(alpha: 0),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  offset: const Offset(0, 2),
+                  blurRadius: 8,
+                  color: Color.fromRGBO(0, 0, 0, selected ? 0.10 : 0),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                SizedBox(
-                  width: 28,
-                  child: Text(
-                    currency.symbol,
-                    textAlign: TextAlign.center,
-                    style: AppText.headline,
+                LiquidBox(
+                  style: GlassStyle(
+                    radius: 19,
+                    color: currency.color,
+                    borderWidth: 0,
+                    shadows: [
+                      const CssShadow.inset(
+                        dy: 1,
+                        color: Color.fromRGBO(255, 255, 255, 0.45),
+                      ),
+                      CssShadow(dy: 4, blur: 10, color: glow),
+                    ],
+                  ),
+                  width: 38,
+                  height: 38,
+                  child: Center(
+                    child: Text(
+                      currency.symbol,
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.white,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(child: Text(name, style: AppText.subhead)),
-                const SizedBox(width: 12),
-                Text(currency.code, style: palette.footnote),
-                if (selected) ...[
-                  const SizedBox(width: 12),
-                  const LineIcon(
-                    LineGlyph.tick,
-                    size: 16,
-                    strokeWidth: 3,
-                    color: AppColors.accent,
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        '${currency.code} · ${currency.format(_sample)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: palette.secondaryLabel,
+                          fontFeatures: AppText.tabular,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+                const SizedBox(width: 12),
+                AnimatedSwitcher(
+                  duration: Motion.bouncy.duration,
+                  switchInCurve: Motion.bouncy,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) =>
+                      ScaleTransition(scale: animation, child: child),
+                  child: selected
+                      ? Container(
+                          key: const ValueKey(true),
+                          width: 24,
+                          height: 24,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.accent,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                offset: const Offset(0, 3),
+                                blurRadius: 8,
+                                color: AppColors.accent.withValues(alpha: 0.4),
+                              ),
+                            ],
+                          ),
+                          child: const LineIcon(
+                            LineGlyph.tick,
+                            size: 13,
+                            strokeWidth: 3.4,
+                            color: AppColors.white,
+                          ),
+                        )
+                      : Container(
+                          key: const ValueKey(false),
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: palette.optionRing,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                ),
               ],
             ),
           ),

@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 import 'package:flutter/foundation.dart';
 
 import '../app/format.dart';
@@ -10,23 +12,39 @@ enum ThemeChoice { system, light, dark }
 enum AppLanguage { en, bn }
 
 enum Currency {
-  bdt('BDT', '৳', 'Bangladeshi Taka', 'বাংলাদেশি টাকা'),
-  inr('INR', '₹', 'Indian Rupee', 'ভারতীয় রুপি'),
-  usd('USD', r'$', 'US Dollar', 'মার্কিন ডলার'),
-  eur('EUR', '€', 'Euro', 'ইউরো');
+  bdt('BDT', '৳', 'Bangladeshi Taka', 'বাংলাদেশি টাকা', Color(0xFF1FA855)),
+  inr('INR', '₹', 'Indian Rupee', 'ভারতীয় রুপি', Color(0xFFFF8A00)),
+  usd('USD', r'$', 'US Dollar', 'মার্কিন ডলার', Color(0xFF0A84FF), cents: true),
+  eur('EUR', '€', 'Euro', 'ইউরো', Color(0xFF5856D6), cents: true);
 
-  const Currency(this.code, this.symbol, this.englishName, this.banglaName);
+  const Currency(
+    this.code,
+    this.symbol,
+    this.englishName,
+    this.banglaName,
+    this.color, {
+    this.cents = false,
+  });
 
   final String code;
   final String symbol;
   final String englishName;
   final String banglaName;
+
+  /// The symbol badge in Settings.
+  final Color color;
+
+  /// Dollars and euros always show cents and group by thousands; taka and
+  /// rupees group in lakhs (`1,22,000`) and show paisa only when there are any.
+  final bool cents;
+
+  MoneyFormat get format => MoneyFormat(symbol, cents: cents);
 }
 
 /// The Settings screen's choices, saved on the device.
 ///
 /// Haptics, currency and language are global switches ([Haptics.enabled],
-/// [currencySymbol], [bangla]); this keeps them in step with what is stored.
+/// [money], [bangla]); this keeps them in step with what is stored.
 class SettingsStore extends ChangeNotifier {
   SettingsStore({
     ThemeChoice theme = ThemeChoice.system,
@@ -101,7 +119,7 @@ class SettingsStore extends ChangeNotifier {
 
   void _apply() {
     Haptics.enabled = _haptics;
-    currencySymbol = _currency.symbol;
+    money = _currency.format;
     bangla = _language == AppLanguage.bn;
   }
 

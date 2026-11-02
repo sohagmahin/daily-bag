@@ -10,6 +10,7 @@ class SettingsStrings {
     required this.language,
     required this.preferences,
     required this.currency,
+    required this.currencyNote,
     required this.haptics,
     required this.hapticsSub,
     required this.data,
@@ -35,6 +36,9 @@ class SettingsStrings {
   final String language;
   final String preferences;
   final String currency;
+
+  /// Under the currency list: amounts keep their numbers.
+  final String currencyNote;
   final String haptics;
   final String hapticsSub;
   final String data;
@@ -62,6 +66,8 @@ class SettingsStrings {
     language: 'Language',
     preferences: 'Preferences',
     currency: 'Currency',
+    currencyNote:
+        'Only the symbol and format change. Your amounts aren’t converted.',
     haptics: 'Haptic feedback',
     hapticsSub: 'Gentle taps when you tick or save',
     data: 'Data',
@@ -86,6 +92,8 @@ class SettingsStrings {
     language: 'ভাষা',
     preferences: 'পছন্দসমূহ',
     currency: 'মুদ্রা',
+    currencyNote:
+        'শুধু চিহ্ন বদলাবে। আপনার পরিমাণ অন্য মুদ্রায় রূপান্তর হবে না।',
     haptics: 'হ্যাপটিক ফিডব্যাক',
     hapticsSub: 'টিক বা সেভ করলে হালকা কম্পন',
     data: 'ডেটা',

@@ -120,6 +120,8 @@ class Palette {
     required this.bazarFade,
     required this.segmentFill,
     required this.segmentOn,
+    required this.panelEdge,
+    required this.optionRing,
     required this.glass,
   });
 
@@ -169,6 +171,10 @@ class Palette {
   /// Settings' segmented controls: the track and the chosen option.
   final Color segmentFill;
   final Color segmentOn;
+
+  /// Settings' currency panel: its rim and the empty radio rings.
+  final Color panelEdge;
+  final Color optionRing;
   final GlassSet glass;
 
   static final light = Palette._(
@@ -209,6 +215,8 @@ class Palette {
     bazarFade: 0.8,
     segmentFill: _greyFill(0.13),
     segmentOn: _white(0.96),
+    panelEdge: _white(0.6),
+    optionRing: _greyLabel(0.28),
     glass: GlassSet._light(),
   );
 
@@ -250,6 +258,8 @@ class Palette {
     bazarFade: 0.88,
     segmentFill: _greyFill(0.26),
     segmentOn: const Color.fromRGBO(110, 110, 118, 0.85),
+    panelEdge: _white(0.06),
+    optionRing: _paleLabel(0.3),
     glass: GlassSet._dark(),
   );
 

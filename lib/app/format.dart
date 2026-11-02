@@ -51,6 +51,7 @@ const _banglaWeekdays = [
 ];
 
 final _thousands = RegExp(r'\B(?=(\d{3})+(?!\d))');
+final _lakhs = RegExp(r'\B(?=(\d{2})*\d{3}(?!\d))');
 
 DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 DateTime monthOf(DateTime d) => DateTime(d.year, d.month);
@@ -59,17 +60,35 @@ bool isSameDay(DateTime a, DateTime b) =>
 bool isSameMonth(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month;
 
-/// The money symbol in use; set from the "Currency" setting.
-String currencySymbol = '৳';
+/// How money is written in one currency.
+class MoneyFormat {
+  const MoneyFormat(this.symbol, {this.cents = false});
 
-/// `1540` → `৳1,540`, `12.5` → `৳12.50`, in the chosen currency.
-String formatMoney(double value) => '$currencySymbol${formatAmount(value)}';
+  final String symbol;
 
-String formatAmount(double value) {
-  final parts = value.toStringAsFixed(2).split('.');
-  final whole = parts[0].replaceAll(_thousands, ',');
-  return digits(parts[1] == '00' ? whole : '$whole.${parts[1]}');
+  /// Thousands grouping with two decimals always (`\$1,220.00`); otherwise
+  /// lakh grouping with decimals only when there are any (`৳1,22,000`).
+  final bool cents;
+
+  /// `1540` → `৳1,540`, `12.5` → `৳12.50`.
+  String call(double value) => '$symbol${amount(value)}';
+
+  String amount(double value) {
+    final parts = value.toStringAsFixed(2).split('.');
+    final whole = parts[0].replaceAll(cents ? _thousands : _lakhs, ',');
+    return digits(cents || parts[1] != '00' ? '$whole.${parts[1]}' : whole);
+  }
 }
+
+/// The money format in use; set from the "Currency" setting.
+MoneyFormat money = const MoneyFormat('৳');
+
+String get currencySymbol => money.symbol;
+
+/// `1540` → `৳1,540`, in the chosen currency.
+String formatMoney(double value) => money(value);
+
+String formatAmount(double value) => money.amount(value);
 
 /// The plain form shown inside an editable amount field.
 String editableAmount(double value) => value == value.roundToDouble()
