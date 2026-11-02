@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../app/format.dart';
 import '../../app/haptics.dart';
 import '../../app/motion.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../models/expense.dart';
 import '../../state/expense_draft.dart';
@@ -164,8 +165,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet>
             Positioned.fill(
               child: GlassScrim(
                 progress: t * (1 - pulled),
-                color: AppColors.sheetScrim,
-                semanticLabel: 'Dismiss',
+                color: context.palette.sheetScrim,
+                semanticLabel: tr.dismiss,
                 onTap: _close,
               ),
             ),
@@ -190,9 +191,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet>
       scopesRoute: true,
       namesRoute: true,
       explicitChildNodes: true,
-      label: 'Bazar Diary',
+      label: tr.bazarDiary,
       child: LiquidBox(
-        style: Glass.sheet,
+        style: context.palette.glass.sheet,
         padding: const EdgeInsets.only(top: 8, bottom: 26),
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
@@ -209,13 +210,13 @@ class _AddExpenseSheetState extends State<AddExpenseSheet>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Center(
+                      Center(
                         child: SizedBox(
                           width: 36,
                           height: 5,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: AppColors.grabber,
+                              color: context.palette.grabber,
                               borderRadius: BorderRadius.all(
                                 Radius.circular(3),
                               ),
@@ -244,11 +245,11 @@ class _AddExpenseSheetState extends State<AddExpenseSheet>
                   pressedScale: 0.97,
                   borderRadius: 29,
                   child: LiquidBox(
-                    style: Glass.primaryButton(glow: 0.35),
+                    style: context.palette.glass.primaryButton(glow: 0.35),
                     height: 56,
                     child: Center(
                       child: Text(
-                        'Done',
+                        tr.done,
                         style: AppText.headline.copyWith(
                           color: AppColors.white,
                         ),
@@ -280,14 +281,14 @@ class _Header extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Bazar Diary', style: AppText.title1),
+              Text(tr.bazarDiary, style: AppText.title1),
               const SizedBox(height: 2),
               _Swap(
                 value: date,
                 child: Text(
                   longDay(date),
                   style: AppText.subhead.copyWith(
-                    color: AppColors.secondaryLabelStrong,
+                    color: context.palette.secondaryLabelStrong,
                   ),
                 ),
               ),
@@ -302,10 +303,9 @@ class _Header extends StatelessWidget {
             haptic: HapticKind.light,
             pressedScale: 0.92,
             borderRadius: 30,
-            semanticLabel:
-                'Date: ${date.day} ${monthName(date)}. Open calendar',
+            semanticLabel: tr.dateBadge(dayAndMonth(date)),
             child: LiquidBox(
-              style: Glass.dateBadge,
+              style: context.palette.glass.dateBadge,
               width: 58,
               height: 58,
               child: ExcludeSemantics(
@@ -317,16 +317,16 @@ class _Header extends StatelessWidget {
                     children: [
                       Text(
                         shortMonthName(date).toUpperCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           height: 12 / 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.6,
-                          color: AppColors.red,
+                          color: context.palette.red,
                         ),
                       ),
                       Text(
-                        twoDigits(date.day),
+                        digits(twoDigits(date.day)),
                         style: const TextStyle(
                           fontSize: 22,
                           height: 24 / 22,
@@ -435,7 +435,7 @@ class _RemovableRow extends StatelessWidget {
       onDismissed: (_) => context.read<ExpenseDraft>().removeRow(row),
       background: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppColors.destructiveTint,
+          color: context.palette.destructiveTint,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Align(
@@ -443,8 +443,8 @@ class _RemovableRow extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.only(right: 20),
             child: Text(
-              'Remove',
-              style: AppText.subheadBold.copyWith(color: AppColors.red),
+              tr.remove,
+              style: AppText.subheadBold.copyWith(color: context.palette.red),
             ),
           ),
         ),
@@ -467,17 +467,17 @@ class _AddMoreButton extends StatelessWidget {
       pressedScale: 0.94,
       borderRadius: 25,
       child: LiquidBox(
-        style: Glass.pill,
+        style: context.palette.glass.pill,
         height: 48,
         padding: const EdgeInsets.fromLTRB(14, 0, 20, 0),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox.square(
+            SizedBox.square(
               dimension: 30,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: AppColors.accentIconTint,
+                  color: context.palette.accentIconTint,
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -485,15 +485,17 @@ class _AddMoreButton extends StatelessWidget {
                     LineGlyph.plus,
                     size: 16,
                     strokeWidth: 2.8,
-                    color: AppColors.accentText,
+                    color: context.palette.accentText,
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
             Text(
-              'Add more',
-              style: AppText.callout.copyWith(color: AppColors.accentText),
+              tr.addMore,
+              style: AppText.callout.copyWith(
+                color: context.palette.accentText,
+              ),
             ),
           ],
         ),
@@ -520,7 +522,7 @@ class _TotalLine extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppText.subhead.copyWith(
-              color: AppColors.secondaryLabelStrong,
+              color: context.palette.secondaryLabelStrong,
             ),
           ),
         ),
@@ -531,7 +533,7 @@ class _TotalLine extends StatelessWidget {
           // No overshoot: a total must never read below its target.
           curve: Curves.easeOutCubic,
           builder: (context, value, _) => Text(
-            formatTaka(whole ? value.roundToDouble() : value),
+            formatMoney(whole ? value.roundToDouble() : value),
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,

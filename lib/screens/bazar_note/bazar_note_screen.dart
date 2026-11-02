@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../app/format.dart';
 import '../../app/haptics.dart';
 import '../../app/motion.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../models/expense.dart';
 import '../../state/bazar_store.dart';
@@ -18,9 +19,13 @@ import '../../widgets/liquid_glass.dart';
 import '../../widgets/liquid_pressable.dart';
 import 'moved_card.dart';
 
-final _priceFormat = FilteringTextInputFormatter.allow(
-  RegExp(r'^\d*\.?\d{0,2}'),
-);
+final _priceFormat = [
+  // A Bangla keyboard types ০-৯; amounts are stored with ASCII digits.
+  TextInputFormatter.withFunction(
+    (_, value) => value.copyWith(text: asciiDigits(value.text)),
+  ),
+  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+];
 
 /// "Bazar Note": the shopping list. Items are ticked off with a price as
 /// they are bought, then "Move to Daily Bag" files them under today.
@@ -82,7 +87,7 @@ class _BazarNoteScreenState extends State<BazarNoteScreen> {
     final buttonInset = math.max(mq.padding.bottom, 20.0);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
+      value: context.palette.statusBar,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusScope.of(context).unfocus(),
@@ -128,18 +133,17 @@ class _BazarNoteScreenState extends State<BazarNoteScreen> {
                       child: _ItemList(fresh: _fresh),
                     ),
                     const SizedBox(height: 14),
-                    const Entrance(
+                    Entrance(
                       delay: Duration(milliseconds: 160),
                       child: FadeWithGlass(
                         child: Padding(
                           padding: EdgeInsets.symmetric(horizontal: 6),
                           child: Text(
-                            'Tick items as you buy them and add the price. '
-                            'Unticked items stay here for next time.',
+                            tr.bazarNoteHelp,
                             style: TextStyle(
                               fontSize: 13,
                               height: 18 / 13,
-                              color: AppColors.secondaryLabel,
+                              color: context.palette.secondaryLabel,
                             ),
                           ),
                         ),
@@ -164,14 +168,16 @@ class _BazarNoteScreenState extends State<BazarNoteScreen> {
                         : 0.0;
                     return Opacity(
                       opacity: shown,
-                      child: const DecoratedBox(
+                      child: DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Color.fromRGBO(238, 241, 247, 0.85),
-                              Color.fromRGBO(238, 241, 247, 0),
+                              context.palette.background.withValues(
+                                alpha: 0.85,
+                              ),
+                              context.palette.background.withValues(alpha: 0),
                             ],
                           ),
                         ),
@@ -181,7 +187,7 @@ class _BazarNoteScreenState extends State<BazarNoteScreen> {
                 ),
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 0,
               right: 0,
               bottom: 0,
@@ -193,8 +199,10 @@ class _BazarNoteScreenState extends State<BazarNoteScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Color.fromRGBO(238, 241, 247, 0),
-                        Color.fromRGBO(238, 241, 247, 0.8),
+                        context.palette.background.withValues(alpha: 0),
+                        context.palette.background.withValues(
+                          alpha: context.palette.bazarFade,
+                        ),
                       ],
                     ),
                   ),
@@ -236,9 +244,9 @@ class _Header extends StatelessWidget {
               haptic: HapticKind.light,
               pressedScale: 0.9,
               borderRadius: 23,
-              semanticLabel: 'Back to Daily Bag',
+              semanticLabel: tr.backToDailyBag,
               child: LiquidBox(
-                style: Glass.menuButton,
+                style: context.palette.glass.menuButton,
                 width: 44,
                 height: 44,
                 child: const Center(
@@ -247,8 +255,11 @@ class _Header extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const FadeWithGlass(
-              child: Text('SHOPPING LIST', style: AppText.eyebrow),
+            FadeWithGlass(
+              child: Text(
+                tr.shoppingList.toUpperCase(),
+                style: context.palette.eyebrow,
+              ),
             ),
           ],
         ),
@@ -260,16 +271,16 @@ class _Header extends StatelessWidget {
               Expanded(
                 child: Semantics(
                   header: true,
-                  child: const Text('Bazar Note', style: AppText.largeTitle),
+                  child: Text(tr.bazarNote, style: AppText.largeTitle),
                 ),
               ),
               const SizedBox(width: 12),
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
-                  '${store.boughtCount} of ${store.items.length} bought',
+                  tr.progress(store.boughtCount, store.items.length),
                   style: AppText.subhead.copyWith(
-                    color: AppColors.secondaryLabelStrong,
+                    color: context.palette.secondaryLabelStrong,
                     fontFeatures: AppText.tabular,
                   ),
                 ),
@@ -296,22 +307,22 @@ class _DraftField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LiquidBox(
-      style: Glass.bazarField,
+      style: context.palette.glass.bazarField,
       height: 52,
       padding: const EdgeInsets.fromLTRB(16, 0, 6, 0),
       child: Row(
         children: [
           Expanded(
             child: Semantics(
-              label: 'New item',
+              label: tr.newItem,
               child: CupertinoTextField.borderless(
                 controller: controller,
                 focusNode: focusNode,
-                placeholder: 'Add an item to buy…',
+                placeholder: tr.addItemPlaceholder,
                 padding: EdgeInsets.zero,
-                style: AppText.base,
+                style: context.palette.text,
                 placeholderStyle: AppText.base.copyWith(
-                  color: AppColors.placeholder,
+                  color: context.palette.placeholder,
                 ),
                 cursorColor: AppColors.accent,
                 textCapitalization: TextCapitalization.sentences,
@@ -327,7 +338,7 @@ class _DraftField extends StatelessWidget {
             haptic: HapticKind.none,
             pressedScale: 0.88,
             borderRadius: 20,
-            semanticLabel: 'Add item',
+            semanticLabel: tr.addItem,
             child: LiquidBox(
               style: GlassStyle(
                 radius: 20,
@@ -372,18 +383,21 @@ class _ItemList extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = context.watch<BazarStore>().items;
     return LiquidBox(
-      style: Glass.bazarList,
+      style: context.palette.glass.bazarList,
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: AnimatedSize(
         duration: Motion.smooth.duration,
         curve: Motion.smooth,
         alignment: Alignment.topCenter,
         child: items.isEmpty
-            ? const SizedBox(
+            ? SizedBox(
                 height: 54,
                 child: Center(
                   child: FadeWithGlass(
-                    child: Text('Nothing to buy yet', style: AppText.footnote),
+                    child: Text(
+                      tr.nothingToBuy,
+                      style: context.palette.footnote,
+                    ),
                   ),
                 ),
               )
@@ -421,14 +435,14 @@ class _RemovableRow extends StatelessWidget {
       },
       onDismissed: (_) => context.read<BazarStore>().remove(item.id),
       background: ColoredBox(
-        color: AppColors.destructiveTint,
+        color: context.palette.destructiveTint,
         child: Align(
           alignment: Alignment.centerRight,
           child: Padding(
             padding: const EdgeInsets.only(right: 20),
             child: Text(
-              'Remove',
-              style: AppText.subheadBold.copyWith(color: AppColors.red),
+              tr.remove,
+              style: AppText.subheadBold.copyWith(color: context.palette.red),
             ),
           ),
         ),
@@ -482,8 +496,8 @@ class _ItemRowState extends State<_ItemRow> {
               haptic: HapticKind.selection,
               pressedScale: 0.85,
               semanticLabel: item.checked
-                  ? 'Mark not bought: ${item.name}'
-                  : 'Mark bought: ${item.name}',
+                  ? tr.markNotBought(item.name)
+                  : tr.markBought(item.name),
               selected: item.checked,
               child: SizedBox.square(
                 dimension: 44,
@@ -496,7 +510,9 @@ class _ItemRowState extends State<_ItemRow> {
                 duration: Motion.snappy.duration,
                 curve: Curves.easeOut,
                 style: AppText.base.copyWith(
-                  color: item.checked ? AppColors.chevron : AppColors.label,
+                  color: item.checked
+                      ? context.palette.chevron
+                      : context.palette.label,
                 ),
                 child: Text(
                   item.name,
@@ -515,40 +531,40 @@ class _ItemRowState extends State<_ItemRow> {
                 height: 36,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.fill,
+                  color: context.palette.fill,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
-                    const ExcludeSemantics(
+                    ExcludeSemantics(
                       child: Text(
-                        '৳',
+                        currencySymbol,
                         style: TextStyle(
                           fontSize: 15,
-                          color: AppColors.secondaryLabelStrong,
+                          color: context.palette.secondaryLabelStrong,
                         ),
                       ),
                     ),
                     const SizedBox(width: 3),
                     Expanded(
                       child: Semantics(
-                        label: 'Price for ${item.name}',
+                        label: tr.priceFor(item.name),
                         child: CupertinoTextField.borderless(
                           controller: _price,
                           focusNode: _priceFocus,
-                          placeholder: '0',
+                          placeholder: digits(0),
                           padding: EdgeInsets.zero,
                           textAlign: TextAlign.right,
                           style: _priceStyle,
                           placeholderStyle: _priceStyle.copyWith(
-                            color: AppColors.placeholder,
+                            color: context.palette.placeholder,
                             fontWeight: FontWeight.w400,
                           ),
                           cursorColor: AppColors.accent,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
-                          inputFormatters: [_priceFormat],
+                          inputFormatters: _priceFormat,
                           onChanged: _setPrice,
                         ),
                       ),
@@ -580,16 +596,16 @@ class _CheckMark extends StatelessWidget {
     ],
   );
 
-  // CSS content-box: 24 inside a 2px ring, so 28 across.
-  static const _ring = GlassStyle(
-    radius: 14,
-    color: AppColors.checkWell,
-    borderColor: AppColors.checkRing,
-    borderWidth: 2,
-  );
-
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    // CSS content-box: 24 inside a 2px ring, so 28 across.
+    final ring = GlassStyle(
+      radius: 14,
+      color: palette.checkWell,
+      borderColor: palette.checkRing,
+      borderWidth: 2,
+    );
     return AnimatedSwitcher(
       duration: Motion.bouncy.duration,
       switchInCurve: Motion.bouncy,
@@ -611,9 +627,9 @@ class _CheckMark extends StatelessWidget {
                 ),
               ),
             )
-          : const LiquidBox(
-              key: ValueKey(false),
-              style: _ring,
+          : LiquidBox(
+              key: const ValueKey(false),
+              style: ring,
               width: 24,
               height: 24,
             ),
@@ -645,8 +661,10 @@ class _MoveBar extends StatelessWidget {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  '${plural(n, 'item')} bought',
-                  style: AppText.subhead.copyWith(color: AppColors.amountLabel),
+                  tr.boughtCount(n),
+                  style: AppText.subhead.copyWith(
+                    color: context.palette.amountLabel,
+                  ),
                 ),
                 TweenAnimationBuilder<double>(
                   tween: Tween(end: total),
@@ -654,7 +672,7 @@ class _MoveBar extends StatelessWidget {
                   // No overshoot: a total must never read below its target.
                   curve: Curves.easeOutCubic,
                   builder: (context, value, _) => Text(
-                    formatTaka(whole ? value.roundToDouble() : value),
+                    formatMoney(whole ? value.roundToDouble() : value),
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -677,7 +695,7 @@ class _MoveBar extends StatelessWidget {
             pressedScale: 0.97,
             borderRadius: 29,
             child: LiquidBox(
-              style: Glass.primaryButton(glow: 0.35),
+              style: context.palette.glass.primaryButton(glow: 0.35),
               height: 56,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -690,7 +708,7 @@ class _MoveBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Move to Daily Bag',
+                    tr.moveToDailyBag,
                     style: AppText.headline.copyWith(color: AppColors.white),
                   ),
                 ],

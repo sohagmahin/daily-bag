@@ -22,6 +22,13 @@ enum LineGlyph {
   tick,
   clipboard,
   bag,
+  moon,
+  globe,
+  cash,
+  haptic,
+  sheet,
+  download,
+  gear,
 }
 
 class LineIcon extends StatelessWidget {
@@ -30,20 +37,26 @@ class LineIcon extends StatelessWidget {
     super.key,
     this.size = 20,
     this.strokeWidth = 2,
-    this.color = AppColors.label,
+    this.color,
   });
 
   final LineGlyph glyph;
   final double size;
   final double strokeWidth;
-  final Color color;
+
+  /// Defaults to the palette's label colour.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return ExcludeSemantics(
       child: CustomPaint(
         size: Size.square(size),
-        painter: _LineIconPainter(glyph, strokeWidth, color),
+        painter: _LineIconPainter(
+          glyph,
+          strokeWidth,
+          color ?? context.palette.label,
+        ),
       ),
     );
   }
@@ -214,6 +227,44 @@ class _LineIconPainter extends CustomPainter {
           ..lineTo(9, 6.5)
           ..arcToPoint(const Offset(15, 6.5), radius: const Radius.circular(3))
           ..lineTo(15, 8);
+      case LineGlyph.moon:
+        svgPath(p, 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z');
+      case LineGlyph.globe:
+        p.addOval(Rect.fromCircle(center: const Offset(12, 12), radius: 9));
+        svgPath(
+          p,
+          'M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9'
+          'c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z',
+        );
+      case LineGlyph.cash:
+        p
+          ..addRRect(
+            RRect.fromLTRBR(2.5, 6, 21.5, 18, const Radius.circular(2.5)),
+          )
+          ..addOval(Rect.fromCircle(center: const Offset(12, 12), radius: 2.6));
+        svgPath(p, 'M6 9.5v5M18 9.5v5');
+      case LineGlyph.haptic:
+        p.addRRect(RRect.fromLTRBR(8, 4, 16, 20, const Radius.circular(2)));
+        svgPath(p, 'M4 9v6M20 9v6M1.5 11v2M22.5 11v2');
+      case LineGlyph.sheet:
+        p.addRRect(RRect.fromLTRBR(4, 3, 20, 21, const Radius.circular(2.5)));
+        svgPath(p, 'M4 9h16M4 15h16M10 9v12');
+      case LineGlyph.download:
+        svgPath(p, 'M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14');
+      case LineGlyph.gear:
+        p.addOval(Rect.fromCircle(center: const Offset(12, 12), radius: 3));
+        svgPath(
+          p,
+          'M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1'
+          'a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1'
+          'a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8'
+          'l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1'
+          'a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8'
+          'l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1'
+          'a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8'
+          'l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4'
+          'h-.1a1.7 1.7 0 0 0-1.5 1z',
+        );
     }
     return p;
   }
@@ -223,4 +274,84 @@ class _LineIconPainter extends CustomPainter {
       old.glyph != glyph ||
       old.strokeWidth != strokeWidth ||
       old.color != color;
+}
+
+final _svgToken = RegExp(r'[MmLlHhVvCcSsAaZz]|-?(?:\d+\.?\d*|\.\d+)');
+
+/// Appends SVG path data to [path]. Covers what the design's icons use:
+/// moves, lines, cubic and smooth-cubic curves, arcs, and close.
+@visibleForTesting
+void svgPath(Path path, String data) {
+  final tokens = _svgToken.allMatches(data).map((m) => m[0]!).toList();
+  var i = 0;
+  var command = 'M';
+  var current = Offset.zero;
+  var start = Offset.zero;
+  Offset? lastControl;
+  double next() => double.parse(tokens[i++]);
+  bool numberNext() =>
+      i < tokens.length && !RegExp(r'[A-Za-z]').hasMatch(tokens[i]);
+
+  while (i < tokens.length) {
+    if (!numberNext()) command = tokens[i++];
+    final relative = command == command.toLowerCase();
+    Offset point(double x, double y) =>
+        relative ? current + Offset(x, y) : Offset(x, y);
+    switch (command.toUpperCase()) {
+      case 'M':
+        current = start = point(next(), next());
+        path.moveTo(current.dx, current.dy);
+        // Further pairs after a move are lines.
+        command = relative ? 'l' : 'L';
+        lastControl = null;
+      case 'L':
+        current = point(next(), next());
+        path.lineTo(current.dx, current.dy);
+        lastControl = null;
+      case 'H':
+        final x = next();
+        current = Offset(relative ? current.dx + x : x, current.dy);
+        path.lineTo(current.dx, current.dy);
+        lastControl = null;
+      case 'V':
+        final y = next();
+        current = Offset(current.dx, relative ? current.dy + y : y);
+        path.lineTo(current.dx, current.dy);
+        lastControl = null;
+      case 'C':
+        final c1 = point(next(), next());
+        final c2 = point(next(), next());
+        final end = point(next(), next());
+        path.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, end.dx, end.dy);
+        lastControl = c2;
+        current = end;
+      case 'S':
+        final c1 = lastControl == null ? current : current * 2 - lastControl;
+        final c2 = point(next(), next());
+        final end = point(next(), next());
+        path.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, end.dx, end.dy);
+        lastControl = c2;
+        current = end;
+      case 'A':
+        final rx = next();
+        final ry = next();
+        final rotation = next();
+        final largeArc = next() != 0;
+        final sweep = next() != 0;
+        final end = point(next(), next());
+        path.arcToPoint(
+          end,
+          radius: Radius.elliptical(rx, ry),
+          rotation: rotation,
+          largeArc: largeArc,
+          clockwise: sweep,
+        );
+        current = end;
+        lastControl = null;
+      case 'Z':
+        path.close();
+        current = start;
+        lastControl = null;
+    }
+  }
 }

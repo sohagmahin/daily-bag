@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../app/format.dart';
 import '../../app/haptics.dart';
 import '../../app/motion.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../widgets/line_icon.dart';
 import '../../widgets/liquid_glass.dart';
@@ -66,13 +67,17 @@ class SummaryCard extends StatelessWidget {
       tween: Tween(end: expanded ? 1 : 0),
       duration: Motion.smooth.duration,
       curve: Motion.smooth,
-      builder: (context, t, _) => _buildAt(t),
+      builder: (context, t, _) => _buildAt(context, t),
     );
   }
 
-  Widget _buildAt(double t) {
+  Widget _buildAt(BuildContext context, double t) {
     final ct = t.clamp(0.0, 1.0);
-    final style = GlassStyle.lerp(Glass.card, Glass.cardRaised, t);
+    final style = GlassStyle.lerp(
+      context.palette.glass.card,
+      context.palette.glass.cardRaised,
+      t,
+    );
 
     // The right inset is 8px short of the card's 18 so the badge's 44px hit
     // area can reach past the content edge (the design's margin-right: -8px).
@@ -94,7 +99,7 @@ class SummaryCard extends StatelessWidget {
                         opacity: 1 - ct,
                         child: Text(
                           subtitle,
-                          style: AppText.footnote,
+                          style: context.palette.footnote,
                           maxLines: 1,
                         ),
                       ),
@@ -102,7 +107,7 @@ class SummaryCard extends StatelessWidget {
                         opacity: ct,
                         child: Text(
                           expandedSubtitle,
-                          style: AppText.footnote,
+                          style: context.palette.footnote,
                           maxLines: 1,
                         ),
                       ),
@@ -123,17 +128,17 @@ class SummaryCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          formatTaka(total),
+                          formatMoney(total),
                           style: AppText.headline.copyWith(
                             fontFeatures: AppText.tabular,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const LineIcon(
+                        LineIcon(
                           LineGlyph.chevronRight,
                           size: 14,
                           strokeWidth: 2.6,
-                          color: AppColors.chevron,
+                          color: context.palette.chevron,
                         ),
                       ],
                     ),
@@ -210,10 +215,12 @@ class _Badge extends StatelessWidget {
     return SizedBox.square(
       dimension: 28,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.accent,
           shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: AppColors.accentRing, spreadRadius: 4)],
+          boxShadow: [
+            BoxShadow(color: context.palette.accentRing, spreadRadius: 4),
+          ],
         ),
         child: Center(
           child: LineIcon(
@@ -239,11 +246,11 @@ class _Details extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 18),
           child: SizedBox(
             height: 1,
-            child: ColoredBox(color: AppColors.separator),
+            child: ColoredBox(color: context.palette.separator),
           ),
         ),
         Padding(
@@ -259,15 +266,15 @@ class _Details extends StatelessWidget {
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: AppColors.accentWash,
+              color: context.palette.accentWash,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Total', style: AppText.subheadBold),
+                Text(tr.total, style: AppText.subheadBold),
                 Text(
-                  formatTaka(total),
+                  formatMoney(total),
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
@@ -311,7 +318,7 @@ class _LineRow extends StatelessWidget {
                   Text(
                     line.detail!,
                     style: AppText.subhead.copyWith(
-                      color: AppColors.secondaryLabel,
+                      color: context.palette.secondaryLabel,
                     ),
                   ),
                 ],
@@ -320,9 +327,9 @@ class _LineRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Text(
-            formatTaka(line.amount),
+            formatMoney(line.amount),
             style: AppText.subhead.copyWith(
-              color: AppColors.amountLabel,
+              color: context.palette.amountLabel,
               fontFeatures: AppText.tabular,
             ),
           ),
@@ -334,7 +341,7 @@ class _LineRow extends StatelessWidget {
       onTap: line.onTap,
       haptic: HapticKind.selection,
       pressedScale: 0.98,
-      semanticLabel: '${line.label}, ${formatTaka(line.amount)}',
+      semanticLabel: '${line.label}, ${formatMoney(line.amount)}',
       child: row,
     );
   }

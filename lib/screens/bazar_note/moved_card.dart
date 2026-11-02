@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../app/format.dart';
 import '../../app/haptics.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../state/bazar_store.dart';
 import '../../widgets/line_icon.dart';
@@ -43,9 +44,7 @@ class MovedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final line =
-        '${plural(move.count, 'item')} · ${formatTaka(move.total)} added to '
-        'today’s expenses. Unticked items stay in your Bazar Note.';
+    final line = tr.movedLine(move.count, formatMoney(move.total));
 
     return AnimatedBuilder(
       animation: animation,
@@ -56,10 +55,10 @@ class MovedCard extends StatelessWidget {
             Positioned.fill(
               child: GlassScrim(
                 progress: t,
-                color: AppColors.thoughtsScrim,
+                color: context.palette.thoughtsScrim,
                 blur: 16,
                 saturation: 1.4,
-                semanticLabel: 'Keep listing',
+                semanticLabel: tr.keepListing,
                 onTap: () => _close(context),
               ),
             ),
@@ -74,7 +73,7 @@ class MovedCard extends StatelessWidget {
                       scopesRoute: true,
                       namesRoute: true,
                       explicitChildNodes: true,
-                      label: 'Added to Daily Bag',
+                      label: tr.addedToDailyBag,
                       child: _card(context, line),
                     ),
                   ),
@@ -89,7 +88,7 @@ class MovedCard extends StatelessWidget {
 
   Widget _card(BuildContext context, String line) {
     return LiquidBox(
-      style: Glass.movedCard,
+      style: context.palette.glass.movedCard,
       padding: const EdgeInsets.fromLTRB(22, 28, 22, 22),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -114,8 +113,8 @@ class MovedCard extends StatelessWidget {
           FadeWithGlass(
             child: Column(
               children: [
-                const Text(
-                  'Added to Daily Bag',
+                Text(
+                  tr.addedToDailyBag,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                 ),
@@ -125,21 +124,21 @@ class MovedCard extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: AppText.subhead.copyWith(
                     height: 21 / 15,
-                    color: AppColors.amountLabel,
+                    color: context.palette.amountLabel,
                   ),
                 ),
                 const SizedBox(height: 22),
                 _CardButton(
-                  label: 'View Daily Bag',
+                  label: tr.viewDailyBag,
                   color: AppColors.accent,
                   textColor: AppColors.white,
                   onTap: () => _close(context, true),
                 ),
                 const SizedBox(height: 8),
                 _CardButton(
-                  label: 'Keep listing',
-                  color: AppColors.accentTint,
-                  textColor: AppColors.accentText,
+                  label: tr.keepListing,
+                  color: context.palette.accentTint,
+                  textColor: context.palette.accentText,
                   onTap: () => _close(context),
                 ),
               ],

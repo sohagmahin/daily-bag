@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../app/format.dart';
 import '../../app/haptics.dart';
 import '../../app/motion.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../models/expense.dart';
 import '../../state/bazar_store.dart';
@@ -143,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final buttonInset = _buttonInset;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
+      value: context.palette.statusBar,
       child: Stack(
         children: [
           const Positioned.fill(child: LiquidBackground()),
@@ -199,14 +200,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       : 0.0;
                   return Opacity(
                     opacity: shown,
-                    child: const DecoratedBox(
+                    child: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Color.fromRGBO(238, 241, 247, 0.85),
-                            Color.fromRGBO(238, 241, 247, 0),
+                            context.palette.background.withValues(alpha: 0.85),
+                            context.palette.background.withValues(alpha: 0),
                           ],
                         ),
                       ),
@@ -216,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 0,
             right: 0,
             bottom: 0,
@@ -228,8 +229,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Color.fromRGBO(238, 241, 247, 0),
-                      Color.fromRGBO(238, 241, 247, 0.7),
+                      context.palette.background.withValues(alpha: 0),
+                      context.palette.background.withValues(
+                        alpha: context.palette.homeFade,
+                      ),
                     ],
                   ),
                 ),
@@ -295,13 +298,13 @@ class _Header extends StatelessWidget {
                   child: Text(
                     eyebrow.toUpperCase(),
                     key: ValueKey(eyebrow),
-                    style: AppText.eyebrow,
+                    style: context.palette.eyebrow,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Semantics(
                   header: true,
-                  child: const Text('Daily Bag', style: AppText.largeTitle),
+                  child: Text(tr.dailyBag, style: AppText.largeTitle),
                 ),
               ],
             ),
@@ -317,9 +320,9 @@ class _Header extends StatelessWidget {
             haptic: HapticKind.light,
             pressedScale: 0.9,
             borderRadius: 23,
-            semanticLabel: 'View options',
+            semanticLabel: tr.viewOptions,
             child: LiquidBox(
-              style: Glass.menuButton,
+              style: context.palette.glass.menuButton,
               width: 44,
               height: 44,
               child: const Center(
@@ -347,15 +350,13 @@ class _BazarButton extends StatelessWidget {
       haptic: HapticKind.light,
       pressedScale: 0.9,
       borderRadius: 23,
-      semanticLabel: left == 0
-          ? 'Bazar Note'
-          : 'Bazar Note, ${plural(left, 'item')} left to buy',
+      semanticLabel: left == 0 ? tr.bazarNote : tr.bazarNoteLeft(left),
       child: ExcludeSemantics(
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             LiquidBox(
-              style: Glass.menuButton,
+              style: context.palette.glass.menuButton,
               width: 44,
               height: 44,
               child: const Center(
@@ -378,7 +379,7 @@ class _BazarButton extends StatelessWidget {
                     color: AppColors.orange,
                     borderRadius: BorderRadius.circular(9),
                     border: Border.all(
-                      color: const Color.fromRGBO(255, 255, 255, 0.95),
+                      color: context.palette.badgeRing,
                       width: 1.5,
                     ),
                     boxShadow: [
@@ -390,7 +391,7 @@ class _BazarButton extends StatelessWidget {
                     ],
                   ),
                   child: Text(
-                    '${math.max(left, 1)}',
+                    digits(math.max(left, 1)),
                     style: const TextStyle(
                       fontSize: 11,
                       height: 1,
@@ -500,10 +501,8 @@ class _GroupList extends StatelessWidget {
 
   Widget _dayCard(ExpenseStore store, DayNote day, bool expanded) {
     final weekday = weekdayName(day.date);
-    final items = plural(day.items.length, 'item');
-    final hint = day.hasThoughts
-        ? 'Hold to read thoughts'
-        : 'Hold to add thoughts';
+    final items = tr.items(day.items.length);
+    final hint = day.hasThoughts ? tr.holdToRead : tr.holdToAdd;
     return SummaryCard(
       key: keyFor(day.date),
       title: dayTitle(day.date),
@@ -518,10 +517,9 @@ class _GroupList extends StatelessWidget {
       onExpand: () => store.selectDay(day.date),
       onLongPress: () => onThoughts(day),
       onBadgeTap: () => onThoughts(day),
-      badgeLabel:
-          'Show Bazar thoughts for ${day.date.day} ${monthName(day.date)}',
+      badgeLabel: tr.showThoughtsFor(dayAndMonth(day.date)),
       semanticLabel:
-          '${dayTitle(day.date)}, $weekday, $items, ${formatTaka(day.total)}',
+          '${dayTitle(day.date)}, $weekday, $items, ${formatMoney(day.total)}',
     );
   }
 
@@ -547,8 +545,7 @@ class _GroupList extends StatelessWidget {
 
   Widget _monthCard(ExpenseStore store, MonthSummary month, bool expanded) {
     final summary =
-        '${plural(month.days.length, 'day')} · '
-        '${plural(month.itemCount, 'item')}';
+        '${tr.days(month.days.length)} · ${tr.items(month.itemCount)}';
     return SummaryCard(
       title: monthTitle(month.month),
       subtitle: summary,
@@ -570,7 +567,7 @@ class _GroupList extends StatelessWidget {
       expanded: expanded,
       onExpand: () => store.selectMonth(month.month),
       semanticLabel:
-          '${monthTitle(month.month)}, $summary, ${formatTaka(month.total)}',
+          '${monthTitle(month.month)}, $summary, ${formatMoney(month.total)}',
     );
   }
 }
@@ -581,12 +578,12 @@ class _EmptyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LiquidBox(
-      style: Glass.card,
+      style: context.palette.glass.card,
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: const Align(
+      child: Align(
         alignment: Alignment.centerLeft,
-        child: Text('No expenses yet', style: AppText.footnote),
+        child: Text(tr.noExpenses, style: context.palette.footnote),
       ),
     );
   }
@@ -614,9 +611,9 @@ class _ChartSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                const Flexible(
+                Flexible(
                   child: Text(
-                    'Recent spending',
+                    tr.recentSpending,
                     style: AppText.title3,
                     maxLines: 1,
                   ),
@@ -647,7 +644,7 @@ class _AddButton extends StatelessWidget {
       pressedScale: 0.97,
       borderRadius: 29,
       child: LiquidBox(
-        style: Glass.primaryButton(),
+        style: context.palette.glass.primaryButton(),
         height: 56,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -660,7 +657,7 @@ class _AddButton extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'Fill the bag',
+              tr.fillTheBag,
               style: AppText.headline.copyWith(color: AppColors.white),
             ),
           ],
@@ -702,18 +699,18 @@ class _TotalToggleState extends State<_TotalToggle> {
 
   @override
   Widget build(BuildContext context) {
-    final amount = formatTaka(widget.total);
+    final amount = formatMoney(widget.total);
     return LiquidPressable(
       onTap: () => setState(() => _shown = !_shown),
       haptic: HapticKind.selection,
       pressedScale: 0.94,
       borderRadius: 16,
-      semanticLabel: _shown ? 'Hide total: $amount' : 'Show total expenses',
+      semanticLabel: _shown ? tr.hideTotal(amount) : tr.showTotal,
       child: Container(
         height: 32,
         padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
         decoration: BoxDecoration(
-          color: AppColors.quietFill,
+          color: context.palette.quietFill,
           borderRadius: BorderRadius.circular(16),
         ),
         child: ExcludeSemantics(
@@ -724,11 +721,11 @@ class _TotalToggleState extends State<_TotalToggle> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Total',
+                Text(
+                  tr.total,
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.secondaryLabelStrong,
+                    color: context.palette.secondaryLabelStrong,
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -742,20 +739,20 @@ class _TotalToggleState extends State<_TotalToggle> {
                       ? Text(
                           amount,
                           key: const ValueKey('amount'),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.pillLabel,
+                            color: context.palette.pillLabel,
                             fontFeatures: AppText.tabular,
                           ),
                         )
-                      : const Text(
+                      : Text(
                           '•••••',
                           key: ValueKey('hidden'),
                           style: TextStyle(
                             fontSize: 13,
                             letterSpacing: 1,
-                            color: AppColors.chevron,
+                            color: context.palette.chevron,
                           ),
                         ),
                 ),
@@ -771,7 +768,7 @@ class _TotalToggleState extends State<_TotalToggle> {
                     key: ValueKey(_shown),
                     size: 16,
                     strokeWidth: 2,
-                    color: AppColors.secondaryLabelStrong,
+                    color: context.palette.secondaryLabelStrong,
                   ),
                 ),
               ],

@@ -8,12 +8,20 @@ import '../app/tokens.dart';
 /// the glass above it always has something alive to refract; frame zero is
 /// exactly the design.
 class LiquidBackground extends StatefulWidget {
-  const LiquidBackground({super.key}) : _blobs = _homeBlobs;
+  const LiquidBackground({super.key}) : _blobs = _homeBlobs, _settings = false;
 
   /// The Bazar Note's mint, blue and apricot fields.
-  const LiquidBackground.bazarNote({super.key}) : _blobs = _bazarBlobs;
+  const LiquidBackground.bazarNote({super.key})
+    : _blobs = _bazarBlobs,
+      _settings = false;
+
+  /// Settings: blue, lilac and mint over its own (darker, in dark) canvas.
+  const LiquidBackground.settings({super.key})
+    : _blobs = _settingsBlobs,
+      _settings = true;
 
   final List<_Blob> _blobs;
+  final bool _settings;
 
   @override
   State<LiquidBackground> createState() => _LiquidBackgroundState();
@@ -46,7 +54,12 @@ class _LiquidBackgroundState extends State<LiquidBackground>
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: CustomPaint(
-        painter: _BlobPainter(_drift, widget._blobs),
+        painter: _BlobPainter(
+          _drift,
+          widget._blobs,
+          context.palette,
+          settings: widget._settings,
+        ),
         size: Size.infinite,
       ),
     );
@@ -150,15 +163,52 @@ const _bazarBlobs = [
   ),
 ];
 
+const _settingsBlobs = [
+  _Blob(
+    diameter: 320,
+    color: Color(0xFF8EC5FF),
+    blur: 70,
+    opacity: 0.85,
+    phase: 0.0,
+    left: -110,
+    top: -60,
+  ),
+  _Blob(
+    diameter: 280,
+    color: Color(0xFFC7B3FF),
+    blur: 70,
+    opacity: 0.85,
+    phase: 1.7,
+    right: -120,
+    top: 300,
+  ),
+  _Blob(
+    diameter: 260,
+    color: Color(0xFF9BE7D2),
+    blur: 80,
+    opacity: 0.85,
+    phase: 3.1,
+    left: -60,
+    bottom: -60,
+  ),
+];
+
 class _BlobPainter extends CustomPainter {
-  _BlobPainter(this.drift, this.blobs) : super(repaint: drift);
+  _BlobPainter(this.drift, this.blobs, this.palette, {required this.settings})
+    : super(repaint: drift);
 
   final Animation<double> drift;
   final List<_Blob> blobs;
+  final Palette palette;
+  final bool settings;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = AppColors.background);
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..color = settings ? palette.settingsBackground : palette.background,
+    );
     final a = drift.value * 2 * math.pi;
     for (final blob in blobs) {
       // Offsets are relative to the start so the first frame is the design.
@@ -168,7 +218,9 @@ class _BlobPainter extends CustomPainter {
         blob.centerIn(size) + Offset(dx, dy),
         blob.diameter / 2,
         Paint()
-          ..color = blob.color.withValues(alpha: blob.opacity)
+          ..color = blob.color.withValues(
+            alpha: palette.blobOpacity ?? blob.opacity,
+          )
           // CSS filter blur(r) is a Gaussian with sigma = r.
           ..maskFilter = MaskFilter.blur(BlurStyle.normal, blob.blur),
       );
@@ -176,5 +228,8 @@ class _BlobPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_BlobPainter oldDelegate) => oldDelegate.blobs != blobs;
+  bool shouldRepaint(_BlobPainter oldDelegate) =>
+      oldDelegate.blobs != blobs ||
+      oldDelegate.palette != palette ||
+      oldDelegate.settings != settings;
 }

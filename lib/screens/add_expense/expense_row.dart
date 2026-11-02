@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/format.dart';
 import '../../app/motion.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../state/expense_draft.dart';
 import '../../widgets/liquid_glass.dart';
@@ -11,9 +13,13 @@ final _amountStyle = AppText.base.copyWith(
   fontWeight: FontWeight.w600,
   fontFeatures: AppText.tabular,
 );
-final _amountFormat = FilteringTextInputFormatter.allow(
-  RegExp(r'^\d*\.?\d{0,2}'),
-);
+final _amountFormat = [
+  // A Bangla keyboard types ০-৯; amounts are stored with ASCII digits.
+  TextInputFormatter.withFunction(
+    (_, value) => value.copyWith(text: asciiDigits(value.text)),
+  ),
+  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+];
 
 /// An item + amount line. Focus draws the blue rim and halo of the design,
 /// morphing from the resting white rim.
@@ -59,15 +65,15 @@ class _ExpenseRowState extends State<ExpenseRow> {
       children: [
         Expanded(
           child: Semantics(
-            label: 'Item $n',
+            label: tr.item(n),
             child: CupertinoTextField.borderless(
               controller: row.name,
               focusNode: row.nameFocus,
-              placeholder: 'Item',
+              placeholder: tr.itemPlaceholder,
               padding: EdgeInsets.zero,
-              style: _nameStyle,
+              style: _nameStyle.copyWith(color: context.palette.label),
               placeholderStyle: _nameStyle.copyWith(
-                color: AppColors.placeholder,
+                color: context.palette.placeholder,
               ),
               cursorColor: AppColors.accent,
               textCapitalization: TextCapitalization.sentences,
@@ -85,39 +91,41 @@ class _ExpenseRowState extends State<ExpenseRow> {
             height: 42,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: AppColors.fill,
+              color: context.palette.fill,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               children: [
-                const ExcludeSemantics(
+                ExcludeSemantics(
                   child: Text(
-                    '৳',
+                    currencySymbol,
                     style: TextStyle(
                       fontSize: 17,
-                      color: AppColors.secondaryLabelStrong,
+                      color: context.palette.secondaryLabelStrong,
                     ),
                   ),
                 ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Semantics(
-                    label: 'Amount for item $n',
+                    label: tr.amountFor(n),
                     child: CupertinoTextField.borderless(
                       controller: row.amount,
                       focusNode: row.amountFocus,
-                      placeholder: '0',
+                      placeholder: digits(0),
                       padding: EdgeInsets.zero,
                       textAlign: TextAlign.right,
-                      style: _amountStyle,
+                      style: _amountStyle.copyWith(
+                        color: context.palette.label,
+                      ),
                       placeholderStyle: _amountStyle.copyWith(
-                        color: AppColors.placeholder,
+                        color: context.palette.placeholder,
                       ),
                       cursorColor: AppColors.accent,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      inputFormatters: [_amountFormat],
+                      inputFormatters: _amountFormat,
                     ),
                   ),
                 ),
@@ -137,7 +145,11 @@ class _ExpenseRowState extends State<ExpenseRow> {
         // Fixed so focusing (1.5px rim) never nudges the rows below.
         height: 56,
         child: LiquidBox(
-          style: GlassStyle.lerp(Glass.field, Glass.fieldFocused, t),
+          style: GlassStyle.lerp(
+            context.palette.glass.field,
+            context.palette.glass.fieldFocused,
+            t,
+          ),
           padding: const EdgeInsets.fromLTRB(18, 0, 6, 0),
           child: child,
         ),

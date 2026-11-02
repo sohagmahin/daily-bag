@@ -3,12 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:little_expense/app/format.dart';
+import 'package:little_expense/app/haptics.dart';
+import 'package:little_expense/app/tokens.dart';
 import 'package:little_expense/main.dart';
 import 'package:little_expense/models/expense.dart';
 import 'package:little_expense/screens/home/spend_chart.dart';
 import 'package:little_expense/state/bazar_store.dart';
 import 'package:little_expense/state/expense_draft.dart';
 import 'package:little_expense/state/expense_store.dart';
+import 'package:little_expense/state/settings_store.dart';
 
 /// One small purchase a day for [count] days from 1 Jan 2026.
 List<DayNote> dailyDays(int count) => [
@@ -161,19 +164,24 @@ void main() {
       WidgetTester tester, [
       ExpenseStore? store,
       BazarStore? bazar,
+      SettingsStore? settings,
     ]) async {
       tester.platformDispatcher.accessibilityFeaturesTestValue =
           const FakeAccessibilityFeatures(disableAnimations: true);
       addTearDown(
         tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
       );
-      await tester.binding.setSurfaceSize(const Size(390, 844));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+      // The view itself, so MediaQuery (and the menu's layout) agree.
+      tester.view
+        ..physicalSize = const Size(390, 844)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
 
       store ??= ExpenseStore.demo();
       await tester.pumpWidget(
         MultiProvider(
           providers: [
+            ChangeNotifierProvider.value(value: settings ?? SettingsStore()),
             ChangeNotifierProvider.value(value: store),
             ChangeNotifierProvider.value(value: bazar ?? BazarStore.demo()),
           ],
@@ -348,6 +356,71 @@ void main() {
       await settle(tester);
       expect(find.text('Fill the bag'), findsOneWidget);
       expect(store.selectedDay, today);
+    });
+
+    testWidgets('Settings switches theme, currency and haptics', (
+      tester,
+    ) async {
+      final settings = SettingsStore();
+      addTearDown(SettingsStore.new); // global symbol and haptics back
+      await pumpHome(tester, null, null, settings);
+
+      await tester.tap(find.bySemanticsLabel('View options'));
+      await settle(tester);
+      await tester.tap(find.text('Settings'));
+      await settle(tester);
+      expect(find.text('APPEARANCE'), findsOneWidget);
+      expect(find.text('৳ BDT'), findsOneWidget);
+
+      Palette palette() =>
+          PaletteScope.of(tester.element(find.text('APPEARANCE')));
+      expect(palette().isDark, isFalse);
+      await tester.tap(find.text('Dark'));
+      await settle(tester);
+      expect(settings.theme, ThemeChoice.dark);
+      expect(palette().isDark, isTrue);
+
+      await tester.tap(find.text('৳ BDT'));
+      await settle(tester);
+      await tester.tap(find.text('US Dollar'));
+      await settle(tester);
+      expect(settings.currency, Currency.usd);
+      expect(find.text(r'$ USD'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Haptic feedback').last);
+      await settle(tester);
+      expect(settings.haptics, isFalse);
+      expect(Haptics.enabled, isFalse);
+
+      await tester.tap(find.text('বাংলা'));
+      await settle(tester);
+      expect(find.text('সেটিংস'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('ফিরে যান'));
+      await settle(tester);
+      await settle(tester);
+      // Home is now in Bangla, in dollars, with Bengali digits.
+      expect(find.text('ব্যাগ ভরুন'), findsOneWidget);
+      expect(find.text('ডেইলি ব্যাগ'), findsOneWidget);
+      expect(find.text('ফেব্রুয়ারি ২০২৬'), findsOneWidget);
+      expect(find.text(r'$১,২২০'), findsWidgets);
+      expect(find.textContaining('৳'), findsNothing);
+    });
+  
+    testWidgets('leaving Settings with the currency list open is safe', (tester) async {
+      await pumpHome(tester);
+      await tester.tap(find.bySemanticsLabel('View options'));
+      await settle(tester);
+      await tester.tap(find.text('Settings'));
+      await settle(tester);
+      await tester.tap(find.text('Dark'));
+      await settle(tester);
+      await tester.tap(find.text('৳ BDT'));
+      await settle(tester);
+      await tester.tap(find.bySemanticsLabel('Back'));
+      await settle(tester);
+      await settle(tester);
+      expect(find.text('Fill the bag'), findsOneWidget);
     });
   });
 }

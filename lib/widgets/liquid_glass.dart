@@ -99,8 +99,12 @@ class GlassStyle {
   final double borderWidth;
   final List<CssShadow> shadows;
 
-  GlassStyle copyWith({Color? color, List<CssShadow>? shadows}) => GlassStyle(
-    radius: radius,
+  GlassStyle copyWith({
+    double? radius,
+    Color? color,
+    List<CssShadow>? shadows,
+  }) => GlassStyle(
+    radius: radius ?? this.radius,
     color: color ?? this.color,
     blur: blur,
     saturation: saturation,

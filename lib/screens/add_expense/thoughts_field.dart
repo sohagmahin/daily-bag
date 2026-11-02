@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/motion.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../state/expense_draft.dart';
 import '../../widgets/line_icon.dart';
@@ -46,7 +47,7 @@ class _ThoughtsFieldState extends State<ThoughtsField> {
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _focus.requestFocus,
-          child: const ExcludeSemantics(
+          child: ExcludeSemantics(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 6),
               child: Row(
@@ -55,16 +56,16 @@ class _ThoughtsFieldState extends State<ThoughtsField> {
                     LineGlyph.note,
                     size: 14,
                     strokeWidth: 2.2,
-                    color: AppColors.secondaryLabel,
+                    color: context.palette.secondaryLabel,
                   ),
                   SizedBox(width: 6),
                   Text(
-                    'BAZAR THOUGHTS',
+                    tr.bazarThoughts.toUpperCase(),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.4,
-                      color: AppColors.secondaryLabel,
+                      color: context.palette.secondaryLabel,
                     ),
                   ),
                 ],
@@ -81,26 +82,30 @@ class _ThoughtsFieldState extends State<ThoughtsField> {
             // The design's textarea is border-box: 128 tall in all.
             height: 128,
             child: LiquidBox(
-              style: GlassStyle.lerp(Glass.field, Glass.fieldFocused, t),
+              style: GlassStyle.lerp(
+                context.palette.glass.field,
+                context.palette.glass.fieldFocused,
+                t,
+              ),
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
               child: child,
             ),
           ),
           child: Semantics(
-            label: 'Bazar thoughts',
+            label: tr.bazarThoughts,
             child: CupertinoTextField.borderless(
               controller: context.read<ExpenseDraft>().thoughts,
               focusNode: _focus,
-              placeholder: 'How did shopping go today?',
+              placeholder: tr.thoughtsPlaceholder,
               padding: EdgeInsets.zero,
               maxLines: null,
               expands: true,
               textAlignVertical: TextAlignVertical.top,
               keyboardType: TextInputType.multiline,
               textCapitalization: TextCapitalization.sentences,
-              style: _textStyle,
+              style: _textStyle.copyWith(color: context.palette.label),
               placeholderStyle: _textStyle.copyWith(
-                color: AppColors.placeholder,
+                color: context.palette.placeholder,
               ),
               cursorColor: AppColors.accent,
             ),

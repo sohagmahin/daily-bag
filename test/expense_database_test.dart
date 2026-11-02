@@ -8,6 +8,7 @@ import 'package:little_expense/data/expense_database.dart';
 import 'package:little_expense/models/expense.dart';
 import 'package:little_expense/state/bazar_store.dart';
 import 'package:little_expense/state/expense_store.dart';
+import 'package:little_expense/state/settings_store.dart';
 
 void main() {
   setUpAll(sqfliteFfiInit);
@@ -181,5 +182,30 @@ void main() {
     expect(restored.items.last.price, isNull);
     // New ids carry on after the stored ones.
     expect(restored.add('Tea')!.id, greaterThan(rice.id + 1));
+  });
+
+  test('settings survive a restart', () async {
+    final db = await open();
+    final settings = await SettingsStore.load(db);
+    expect(settings.theme, ThemeChoice.system);
+    expect(settings.haptics, isTrue);
+    settings
+      ..theme = ThemeChoice.dark
+      ..language = AppLanguage.bn
+      ..currency = Currency.usd
+      ..haptics = false;
+    await settings.flush();
+    await db.close();
+
+    final reopened = await open();
+    addTearDown(reopened.close);
+    final restored = await SettingsStore.load(reopened);
+    expect(restored.theme, ThemeChoice.dark);
+    expect(restored.language, AppLanguage.bn);
+    expect(restored.currency, Currency.usd);
+    expect(restored.haptics, isFalse);
+    // Group mode shares the table and is untouched.
+    expect(await reopened.loadMode(), GroupMode.day);
+    SettingsStore(); // restores the global defaults for later tests
   });
 }

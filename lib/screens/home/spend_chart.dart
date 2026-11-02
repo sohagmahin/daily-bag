@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../app/format.dart';
 import '../../app/haptics.dart';
 import '../../app/motion.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../models/expense.dart';
 import '../../widgets/liquid_glass.dart';
@@ -109,11 +110,11 @@ class _SpendChartState extends State<SpendChart> {
     final peak = bars.fold<double>(0, (m, b) => b.value > m ? b.value : m);
 
     return LiquidBox(
-      style: Glass.chart,
+      style: context.palette.glass.chart,
       padding: const EdgeInsets.only(bottom: 12),
       child: Semantics(
         container: true,
-        label: 'Spending chart',
+        label: tr.spendingChart,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final inner = constraints.maxWidth - 2 * _inset;
@@ -200,7 +201,9 @@ class _Entry extends StatelessWidget {
             curve: Curves.easeOut,
             textAlign: TextAlign.center,
             style: AppText.caption.copyWith(
-              color: bar.selected ? AppColors.label : AppColors.amountLabel,
+              color: bar.selected
+                  ? context.palette.label
+                  : context.palette.amountLabel,
               fontWeight: bar.selected ? FontWeight.w700 : FontWeight.w500,
               fontFeatures: AppText.tabular,
             ),
@@ -257,8 +260,8 @@ class _BarColumn extends StatelessWidget {
                   height: barHeight,
                   child: LiquidBox(
                     style: GlassStyle.lerp(
-                      Glass.chartBar,
-                      Glass.chartBarSelected,
+                      context.palette.glass.chartBar,
+                      context.palette.glass.chartBarSelected,
                       s,
                     ),
                   ),
@@ -272,7 +275,7 @@ class _BarColumn extends StatelessWidget {
                     child: Transform.translate(
                       offset: Offset(0, (1 - s) * 6),
                       child: Text(
-                        formatTaka(bar.value),
+                        formatMoney(bar.value),
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         style: const TextStyle(

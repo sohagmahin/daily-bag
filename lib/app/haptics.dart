@@ -6,7 +6,11 @@ enum HapticKind { none, selection, light, medium, heavy, success, warning }
 ///
 /// Each kind plays one step firmer than its name, so taps feel solid.
 abstract final class Haptics {
+  /// The "Haptic feedback" setting; off silences every kind.
+  static bool enabled = true;
+
   static void play(HapticKind kind) {
+    if (!enabled) return;
     switch (kind) {
       case HapticKind.none:
         return;

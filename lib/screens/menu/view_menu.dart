@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/haptics.dart';
 import '../../app/motion.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../models/expense.dart';
 import '../../state/expense_store.dart';
@@ -10,6 +11,7 @@ import '../../widgets/line_icon.dart';
 import '../../widgets/liquid_glass.dart';
 import '../../widgets/liquid_overlay_route.dart';
 import '../../widgets/liquid_pressable.dart';
+import '../settings/settings_screen.dart';
 
 /// "Group expenses" menu. The glass of the toolbar button stretches out
 /// into the menu and folds back into it on dismiss.
@@ -20,7 +22,9 @@ class ViewMenu extends StatelessWidget {
   static const _itemHeight = 48.0;
   // CSS content-box: 250 wide + 8 padding + 1 border on each side.
   static const _width = 250.0 + 16 + 2;
-  static const _height = _labelHeight + _itemHeight * 2 + 16 + 2;
+  static const _separatorHeight = 13.0;
+  static const _height =
+      _labelHeight + _itemHeight * 3 + _separatorHeight + 16 + 2;
 
   /// The button the menu grows out of, in global coordinates.
   final Rect anchor;
@@ -51,16 +55,20 @@ class ViewMenu extends StatelessWidget {
             Positioned.fill(
               child: GlassScrim(
                 progress: t,
-                color: AppColors.menuScrim,
+                color: context.palette.menuScrim,
                 blur: 3,
-                semanticLabel: 'Close menu',
+                semanticLabel: tr.closeMenu,
                 onTap: () => Navigator.of(context).maybePop(),
               ),
             ),
             Positioned.fromRect(
               rect: Rect.lerp(anchor, target, t)!,
               child: LiquidBox(
-                style: GlassStyle.lerp(Glass.menuButton, Glass.menu, t),
+                style: GlassStyle.lerp(
+                  context.palette.glass.menuButton,
+                  context.palette.glass.menu,
+                  t,
+                ),
                 child: OverflowBox(
                   alignment: Alignment.topRight,
                   minWidth: _width - 2,
@@ -92,17 +100,17 @@ class _MenuContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(
+          SizedBox(
             height: ViewMenu._labelHeight,
             child: Padding(
               padding: EdgeInsets.fromLTRB(12, 8, 12, 6),
               child: Text(
-                'Group expenses',
+                tr.groupExpenses,
                 style: TextStyle(
                   fontSize: 13,
                   height: 15.5 / 13,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.secondaryLabel,
+                  color: context.palette.secondaryLabel,
                 ),
               ),
             ),
@@ -119,9 +127,9 @@ class _MenuContent extends StatelessWidget {
                   right: 0,
                   top: mode == GroupMode.day ? 0 : ViewMenu._itemHeight,
                   height: ViewMenu._itemHeight,
-                  child: const DecoratedBox(
+                  child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: AppColors.accentTint,
+                      color: context.palette.accentTint,
                       borderRadius: BorderRadius.all(Radius.circular(16)),
                     ),
                   ),
@@ -129,13 +137,13 @@ class _MenuContent extends StatelessWidget {
                 Column(
                   children: [
                     _MenuItem(
-                      label: 'View by date',
+                      label: tr.viewByDate,
                       glyph: LineGlyph.calendarDay,
                       value: GroupMode.day,
                       selected: mode == GroupMode.day,
                     ),
                     _MenuItem(
-                      label: 'View by month',
+                      label: tr.viewByMonth,
                       glyph: LineGlyph.calendarMonth,
                       value: GroupMode.month,
                       selected: mode == GroupMode.month,
@@ -145,6 +153,14 @@ class _MenuContent extends StatelessWidget {
               ],
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: SizedBox(
+              height: 1,
+              child: ColoredBox(color: context.palette.separator),
+            ),
+          ),
+          const _SettingsItem(),
         ],
       ),
     );
@@ -212,6 +228,43 @@ class _MenuItem extends StatelessWidget {
                 LineIcon(glyph, size: 18, strokeWidth: 2),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsItem extends StatelessWidget {
+  const _SettingsItem();
+
+  void _open(BuildContext context) {
+    final navigator = Navigator.of(context);
+    // The menu folds back into its button while Settings slides in.
+    navigator
+      ..pop()
+      ..push(SettingsScreen.route());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LiquidPressable(
+      onTap: () => _open(context),
+      haptic: HapticKind.light,
+      pressedScale: 0.97,
+      borderRadius: 16,
+      semanticLabel: tr.settings,
+      child: SizedBox(
+        height: ViewMenu._itemHeight,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              SizedBox(width: 18),
+              SizedBox(width: 12),
+              Expanded(child: Text(tr.settings, style: AppText.body)),
+              LineIcon(LineGlyph.gear, size: 18, strokeWidth: 2),
+            ],
           ),
         ),
       ),

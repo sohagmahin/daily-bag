@@ -44,12 +44,21 @@ class _LiquidPressableState extends State<LiquidPressable>
     with TickerProviderStateMixin {
   static const _maxLean = 5.0;
 
-  late final _press = AnimationController.unbounded(vsync: this);
-  late final _lean = AnimationController.unbounded(vsync: this);
+  // Created up front: a lazy controller first touched in dispose() would
+  // ask for a ticker from an element that is already unmounting.
+  late final AnimationController _press;
+  late final AnimationController _lean;
   final _leanOffset = ValueNotifier(Offset.zero);
   Offset _origin = Offset.zero;
   Offset _touch = Offset.zero;
   bool _down = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _press = AnimationController.unbounded(vsync: this);
+    _lean = AnimationController.unbounded(vsync: this);
+  }
 
   @override
   void dispose() {

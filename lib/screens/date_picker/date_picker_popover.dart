@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../app/format.dart';
 import '../../app/haptics.dart';
 import '../../app/motion.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../state/expense_draft.dart';
 import '../../widgets/line_icon.dart';
@@ -126,9 +127,9 @@ class _DatePickerPopoverState extends State<DatePickerPopover> {
               Positioned.fill(
                 child: GlassScrim(
                   progress: t,
-                  color: AppColors.pickerScrim,
+                  color: context.palette.pickerScrim,
                   blur: 2,
-                  semanticLabel: 'Close calendar',
+                  semanticLabel: tr.closeCalendar,
                   onTap: () => Navigator.of(context).maybePop(),
                 ),
               ),
@@ -138,9 +139,13 @@ class _DatePickerPopoverState extends State<DatePickerPopover> {
                   scopesRoute: true,
                   namesRoute: true,
                   explicitChildNodes: true,
-                  label: 'Choose date',
+                  label: tr.chooseDate,
                   child: LiquidBox(
-                    style: GlassStyle.lerp(Glass.dateBadge, Glass.calendar, t),
+                    style: GlassStyle.lerp(
+                      context.palette.glass.dateBadge,
+                      context.palette.glass.calendar,
+                      t,
+                    ),
                     child: OverflowBox(
                       alignment: Alignment.topRight,
                       minWidth: innerWidth,
@@ -187,13 +192,13 @@ class _DatePickerPopoverState extends State<DatePickerPopover> {
                   ),
                   _NavButton(
                     glyph: LineGlyph.chevronLeft,
-                    label: 'Previous month',
+                    label: tr.previousMonth,
                     onTap: () => _showMonth(-1),
                   ),
                   const SizedBox(width: 6),
                   _NavButton(
                     glyph: LineGlyph.chevronRight,
-                    label: 'Next month',
+                    label: tr.nextMonth,
                     onTap: () => _showMonth(1),
                   ),
                 ],
@@ -206,24 +211,16 @@ class _DatePickerPopoverState extends State<DatePickerPopover> {
             child: ExcludeSemantics(
               child: Row(
                 children: [
-                  for (final d in const [
-                    'SUN',
-                    'MON',
-                    'TUE',
-                    'WED',
-                    'THU',
-                    'FRI',
-                    'SAT',
-                  ])
+                  for (final d in tr.weekdaysShort)
                     Expanded(
                       child: Text(
                         d,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           height: _weekdayHeight / 12,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.weekdayLabel,
+                          color: context.palette.weekdayLabel,
                         ),
                       ),
                     ),
@@ -248,11 +245,11 @@ class _DatePickerPopoverState extends State<DatePickerPopover> {
             ),
           ),
           const SizedBox(height: _gap),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             child: SizedBox(
               height: 1,
-              child: ColoredBox(color: AppColors.separator),
+              child: ColoredBox(color: context.palette.separator),
             ),
           ),
           const SizedBox(height: _gap),
@@ -264,15 +261,15 @@ class _DatePickerPopoverState extends State<DatePickerPopover> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _FooterButton(
-                    label: 'Today',
+                    label: tr.today,
                     padding: 14,
-                    background: AppColors.accentTint,
-                    foreground: AppColors.accentText,
+                    background: context.palette.accentTint,
+                    foreground: context.palette.accentText,
                     haptic: HapticKind.selection,
                     onTap: _today,
                   ),
                   _FooterButton(
-                    label: 'Done',
+                    label: tr.done,
                     padding: 18,
                     background: AppColors.accent,
                     foreground: AppColors.white,
@@ -334,7 +331,7 @@ class _MonthGrid extends StatelessWidget {
               scale: showSelection ? 1 : 0,
               duration: Motion.snappy.duration,
               curve: Motion.snappy,
-              child: LiquidBox(style: Glass.daySelected),
+              child: LiquidBox(style: context.palette.glass.daySelected),
             ),
           ),
           for (var day = 1; day <= count; day++)
@@ -401,10 +398,10 @@ class _DayCell extends StatelessWidget {
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                     color: selected
                         ? AppColors.white
-                        : (isToday ? AppColors.accent : AppColors.label),
+                        : (isToday ? AppColors.accent : context.palette.label),
                     fontFeatures: AppText.tabular,
                   ),
-                  child: Text('${date.day}'),
+                  child: Text(digits(date.day)),
                 ),
               ),
             ),
@@ -436,8 +433,8 @@ class _NavButton extends StatelessWidget {
       child: SizedBox.square(
         dimension: 36,
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: AppColors.fill,
+          decoration: BoxDecoration(
+            color: context.palette.fill,
             shape: BoxShape.circle,
           ),
           child: Center(
@@ -445,7 +442,7 @@ class _NavButton extends StatelessWidget {
               glyph,
               size: 14,
               strokeWidth: 2.8,
-              color: AppColors.accentText,
+              color: context.palette.accentText,
             ),
           ),
         ),

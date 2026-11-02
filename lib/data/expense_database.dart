@@ -167,9 +167,17 @@ class ExpenseDatabase {
     return GroupMode.values.asNameMap()[name] ?? GroupMode.day;
   }
 
-  Future<void> saveMode(GroupMode mode) => _db.insert('settings', {
-    'key': _modeKey,
-    'value': mode.name,
+  Future<void> saveMode(GroupMode mode) => saveSetting(_modeKey, mode.name);
+
+  /// Every stored preference, by key.
+  Future<Map<String, String>> loadSettings() async => {
+    for (final row in await _db.query('settings'))
+      row['key']! as String: row['value']! as String,
+  };
+
+  Future<void> saveSetting(String key, String value) => _db.insert('settings', {
+    'key': key,
+    'value': value,
   }, conflictAlgorithm: ConflictAlgorithm.replace);
 
   Future<void> close() => _db.close();

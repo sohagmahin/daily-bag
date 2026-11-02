@@ -4,11 +4,11 @@
 
 - [x] Add Bazar note
 - [x] Convert Bazar note to Expenses (Single click)
-- [ ] Add Bangla language
-- [ ] Add dark theme
-- [ ] Export to Excel
-- [ ] Setting : Currency Setup 
-- [ ] Turn ON/OFF haptic
+- [x] Add Bangla language
+- [x] Add dark theme
+- [x] Export to Excel
+- [x] Setting : Currency Setup
+- [x] Turn ON/OFF haptic
 
 ## Install on iPhone
 

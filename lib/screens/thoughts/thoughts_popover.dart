@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../app/format.dart';
 import '../../app/haptics.dart';
+import '../../app/strings.dart';
 import '../../app/tokens.dart';
 import '../../models/expense.dart';
 import '../../state/expense_store.dart';
@@ -63,7 +64,7 @@ class _ThoughtsPopoverState extends State<ThoughtsPopover> {
     SharePlus.instance.share(
       ShareParams(
         text: _shareText(_day),
-        subject: 'Daily Bag · ${dayTitle(_day.date)}',
+        subject: '${tr.dailyBag} · ${dayTitle(_day.date)}',
         sharePositionOrigin: origin,
       ),
     );
@@ -96,10 +97,10 @@ class _ThoughtsPopoverState extends State<ThoughtsPopover> {
             Positioned.fill(
               child: GlassScrim(
                 progress: t,
-                color: AppColors.thoughtsScrim,
+                color: context.palette.thoughtsScrim,
                 blur: 16,
                 saturation: 1.4,
-                semanticLabel: 'Close thoughts',
+                semanticLabel: tr.closeThoughts,
                 onTap: _close,
               ),
             ),
@@ -113,8 +114,7 @@ class _ThoughtsPopoverState extends State<ThoughtsPopover> {
                   scopesRoute: true,
                   namesRoute: true,
                   explicitChildNodes: true,
-                  label:
-                      'Bazar thoughts, ${_day.date.day} ${monthName(_day.date)}',
+                  label: tr.thoughtsFor(dayAndMonth(_day.date)),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -162,10 +162,10 @@ class _ThoughtsPopoverState extends State<ThoughtsPopover> {
 }
 
 String _shareText(DayNote day) => [
-  'Daily Bag · ${dayTitle(day.date)}',
-  for (final e in day.items) '${e.name} — ${formatTaka(e.amount)}',
-  if (day.items.isNotEmpty) 'Total — ${formatTaka(day.total)}',
-  if (day.hasThoughts) ...['', 'Bazar thoughts:', day.thoughts],
+  '${tr.dailyBag} · ${dayTitle(day.date)}',
+  for (final e in day.items) '${e.name} — ${formatMoney(e.amount)}',
+  if (day.items.isNotEmpty) '${tr.total} — ${formatMoney(day.total)}',
+  if (day.hasThoughts) ...['', '${tr.bazarThoughts}:', day.thoughts],
 ].join('\n');
 
 /// Places the stack at its preferred top, nudged to stay on screen.
@@ -208,7 +208,7 @@ class _ThoughtsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LiquidBox(
-      style: Glass.thoughtsCard,
+      style: context.palette.glass.thoughtsCard,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -222,8 +222,8 @@ class _ThoughtsCard extends StatelessWidget {
                   children: [
                     Text(dayTitle(day.date), style: AppText.headline),
                     Text(
-                      '${weekdayName(day.date)} · ${plural(day.items.length, 'item')}',
-                      style: AppText.footnote,
+                      '${weekdayName(day.date)} · ${tr.items(day.items.length)}',
+                      style: context.palette.footnote,
                     ),
                   ],
                 ),
@@ -234,15 +234,15 @@ class _ThoughtsCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: AppColors.fill,
+                  color: context.palette.fill,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
-                  formatTaka(day.total),
-                  style: const TextStyle(
+                  formatMoney(day.total),
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.pillLabel,
+                    color: context.palette.pillLabel,
                     fontFeatures: AppText.tabular,
                   ),
                 ),
@@ -250,27 +250,27 @@ class _ThoughtsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          const SizedBox(
+          SizedBox(
             height: 1,
-            child: ColoredBox(color: AppColors.separatorSoft),
+            child: ColoredBox(color: context.palette.separatorSoft),
           ),
           const SizedBox(height: 14),
-          const Row(
+          Row(
             children: [
               LineIcon(
                 LineGlyph.note,
                 size: 14,
                 strokeWidth: 2.2,
-                color: AppColors.accentText,
+                color: context.palette.accentText,
               ),
               SizedBox(width: 6),
               Text(
-                'BAZAR THOUGHTS',
+                tr.bazarThoughts.toUpperCase(),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.6,
-                  color: AppColors.accentText,
+                  color: context.palette.accentText,
                 ),
               ),
             ],
@@ -279,15 +279,13 @@ class _ThoughtsCard extends StatelessWidget {
           Flexible(
             child: SingleChildScrollView(
               child: Text(
-                day.hasThoughts
-                    ? day.thoughts
-                    : 'No thoughts for this day yet.',
+                day.hasThoughts ? day.thoughts : tr.noThoughts,
                 style: TextStyle(
                   fontSize: 17,
                   height: 25 / 17,
                   color: day.hasThoughts
-                      ? AppColors.label
-                      : AppColors.secondaryLabel,
+                      ? context.palette.label
+                      : context.palette.secondaryLabel,
                 ),
               ),
             ),
@@ -314,30 +312,30 @@ class _ActionMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LiquidBox(
-      style: Glass.contextMenu,
+      style: context.palette.glass.contextMenu,
       width: 230,
       padding: const EdgeInsets.all(6),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _Action(
-            label: hasThoughts ? 'Edit thoughts' : 'Add thoughts',
+            label: hasThoughts ? tr.editThoughts : tr.addThoughts,
             glyph: LineGlyph.pencil,
             onTap: (_) => onEdit(),
           ),
-          _Action(label: 'Share', glyph: LineGlyph.share, onTap: onShare),
+          _Action(label: tr.share, glyph: LineGlyph.share, onTap: onShare),
           if (hasThoughts) ...[
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               child: SizedBox(
                 height: 1,
-                child: ColoredBox(color: AppColors.separator),
+                child: ColoredBox(color: context.palette.separator),
               ),
             ),
             _Action(
-              label: 'Delete thoughts',
+              label: tr.deleteThoughts,
               glyph: LineGlyph.trash,
-              color: AppColors.destructive,
+              color: context.palette.destructive,
               haptic: HapticKind.warning,
               onTap: (_) => onDelete(),
             ),
@@ -353,14 +351,16 @@ class _Action extends StatelessWidget {
     required this.label,
     required this.glyph,
     required this.onTap,
-    this.color = AppColors.label,
+    this.color,
     this.haptic = HapticKind.light,
   });
 
   final String label;
   final LineGlyph glyph;
   final void Function(BuildContext itemContext) onTap;
-  final Color color;
+
+  /// Defaults to the label colour.
+  final Color? color;
   final HapticKind haptic;
 
   @override
@@ -383,7 +383,9 @@ class _Action extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppText.body.copyWith(color: color),
+                    style: AppText.body.copyWith(
+                      color: color ?? context.palette.label,
+                    ),
                   ),
                 ),
               ),

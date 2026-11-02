@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../app/format.dart';
+import '../app/strings.dart';
 import '../models/expense.dart';
 import 'expense_store.dart';
 
@@ -59,8 +60,8 @@ class ExpenseDraft extends ChangeNotifier {
   double get total => _rows.fold(0, (sum, r) => sum + r.value);
 
   String get totalLabel => isSameDay(_date, DateTime.now())
-      ? 'Total for today'
-      : 'Total for ${shortDay(_date)}';
+      ? tr.totalForToday
+      : tr.totalFor(shortDay(_date));
 
   void _attach(DraftRow row) {
     row.amount.addListener(notifyListeners);
@@ -96,7 +97,7 @@ class ExpenseDraft extends ChangeNotifier {
     for (final r in _rows)
       if (r.value > 0)
         Expense(
-          name: r.name.text.trim().isEmpty ? 'Untitled' : r.name.text.trim(),
+          name: r.name.text.trim().isEmpty ? tr.untitled : r.name.text.trim(),
           amount: r.value,
         ),
   ];

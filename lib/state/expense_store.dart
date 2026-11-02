@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
 import '../app/format.dart';
+import '../app/strings.dart';
 import '../data/expense_database.dart';
 import '../models/expense.dart';
 
@@ -98,7 +99,7 @@ class ExpenseStore extends ChangeNotifier {
   String get eyebrow {
     final month = focusedMonth;
     if (month == null) return monthTitle(DateTime.now());
-    return _mode == GroupMode.day ? monthTitle(month) : '${month.year}';
+    return _mode == GroupMode.day ? monthTitle(month) : digits(month.year);
   }
 
   List<DayNote> get days => _days.values.toList();
@@ -135,7 +136,7 @@ class ExpenseStore extends ChangeNotifier {
           ChartBar(
             key: m.month,
             label: shortMonthName(m.month),
-            semanticLabel: '${monthTitle(m.month)}, ${formatTaka(m.total)}',
+            semanticLabel: '${monthTitle(m.month)}, ${formatMoney(m.total)}',
             value: m.total,
             selected: focused != null && isSameMonth(m.month, focused),
           ),
@@ -147,8 +148,8 @@ class ExpenseStore extends ChangeNotifier {
       for (final d in all.skip(_tailStart(all.length)))
         ChartBar(
           key: d.date,
-          label: twoDigits(d.date.day),
-          semanticLabel: '${shortDay(d.date)}, ${formatTaka(d.total)}',
+          label: digits(twoDigits(d.date.day)),
+          semanticLabel: '${shortDay(d.date)}, ${formatMoney(d.total)}',
           value: d.total,
           selected: _selectedDay != null && isSameDay(d.date, _selectedDay!),
         ),
