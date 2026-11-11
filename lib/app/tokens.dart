@@ -12,6 +12,30 @@ abstract final class AppColors {
   static const orange = Color(0xFFFF9500);
 }
 
+/// The black island that reads out a day on the spending map; it looks
+/// the same in light and dark.
+abstract final class IslandColors {
+  /// A day's shade, nothing spent first.
+  static const levels = [
+    Color.fromRGBO(255, 255, 255, 0.16),
+    Color(0xFFCFE3FF),
+    Color(0xFF8EBEFF),
+    Color(0xFF3D8BF2),
+    Color(0xFF2A6BFF),
+  ];
+
+  /// The shade's glow: blue for busy and heavy days, faint otherwise.
+  static const glowBusy = Color.fromRGBO(61, 139, 242, 0.7);
+  static const glowQuiet = Color.fromRGBO(255, 255, 255, 0.08);
+
+  /// The date, and the "Empty" tag's label.
+  static const secondary = Color.fromRGBO(235, 235, 245, 0.6);
+  static const emptyTag = Color.fromRGBO(255, 255, 255, 0.12);
+
+  /// The label on the pale "Light" and "Moderate" tags.
+  static const lightTagLabel = Color(0xFF0B1A33);
+}
+
 abstract final class AppText {
   static const _display = 'CupertinoSystemDisplay';
   static const tabular = [FontFeature.tabularFigures()];
@@ -128,6 +152,12 @@ class Palette {
     required this.rowDivider,
     required this.warnLabel,
     required this.warnTint,
+    required this.heatLevels,
+    required this.heatToday,
+    required this.heatHalo,
+    required this.heatGlow,
+    required this.heatSelect,
+    required this.tipLabel,
     required this.glass,
   });
 
@@ -189,6 +219,19 @@ class Palette {
   final Color rowDivider;
   final Color warnLabel;
   final Color warnTint;
+
+  /// The spending map: its five shades, nothing spent first.
+  final List<Color> heatLevels;
+
+  /// Rings around a day: today, the hovered day's halo and glow, and the
+  /// picked day's outer ring.
+  final Color heatToday;
+  final Color heatHalo;
+  final Color heatGlow;
+  final Color heatSelect;
+
+  /// Text on the dark (light, in dark mode) tooltip over a day.
+  final Color tipLabel;
   final GlassSet glass;
 
   static final light = Palette._(
@@ -236,6 +279,18 @@ class Palette {
     rowDivider: _greyLabel(0.10),
     warnLabel: const Color(0xFFB25000),
     warnTint: const Color.fromRGBO(255, 149, 0, 0.16),
+    heatLevels: [
+      _greyFill(0.14),
+      const Color(0xFFCFE3FF),
+      const Color(0xFF8EBEFF),
+      const Color(0xFF3D8BF2),
+      const Color(0xFF2A4FC9),
+    ],
+    heatToday: AppColors.orange,
+    heatHalo: AppColors.white,
+    heatGlow: _blue(0.45),
+    heatSelect: AppColors.accent,
+    tipLabel: AppColors.white,
     glass: GlassSet._light(),
   );
 
@@ -284,6 +339,18 @@ class Palette {
     rowDivider: const Color.fromRGBO(84, 84, 88, 0.4),
     warnLabel: const Color(0xFFFFB340),
     warnTint: const Color.fromRGBO(255, 149, 0, 0.2),
+    heatLevels: [
+      _white(0.07),
+      const Color(0xFF1B2F57),
+      const Color(0xFF24509A),
+      const Color(0xFF3478E6),
+      const Color(0xFF8AB8FF),
+    ],
+    heatToday: const Color(0xFFFFB340),
+    heatHalo: const Color(0xFF07080C),
+    heatGlow: const Color.fromRGBO(77, 163, 255, 0.6),
+    heatSelect: const Color(0xFF4DA3FF),
+    tipLabel: const Color(0xFF1C1C1E),
     glass: GlassSet._dark(),
   );
 
@@ -329,8 +396,6 @@ class GlassSet {
     required this.calendar,
     required this.field,
     required this.fieldFocused,
-    required this.chartBar,
-    required this.chartBarSelected,
     required this.daySelected,
     required this.thoughtsCard,
     required this.contextMenu,
@@ -347,6 +412,10 @@ class GlassSet {
     required this.scanButton,
     required this.scanSheet,
     required this.scanList,
+    required this.map,
+    required this.mapFolded,
+    required this.tip,
+    required this.emptyDay,
     required double primaryBorder,
     required double primaryRim,
   }) : _primaryBorder = primaryBorder,
@@ -364,8 +433,6 @@ class GlassSet {
   /// Input rows. Both states carry the same shadow slots so they morph.
   final GlassStyle field;
   final GlassStyle fieldFocused;
-  final GlassStyle chartBar;
-  final GlassStyle chartBarSelected;
   final GlassStyle daySelected;
 
   /// The lifted "Bazar thoughts" card shown on long press.
@@ -402,10 +469,19 @@ class GlassSet {
   final GlassStyle scanSheet;
   final GlassStyle scanList;
 
+  /// The day view's "Spending map", open and folded into its strip: it
+  /// lifts a little further off the list as it folds.
+  final GlassStyle map;
+  final GlassStyle mapFolded;
+
+  /// The amount-and-date bubble over a hovered day.
+  final GlassStyle tip;
+
+  /// A picked day with nothing in the bag; its rim is drawn dashed.
+  final GlassStyle emptyDay;
+
   final double _primaryBorder;
   final double _primaryRim;
-
-  GlassStyle get chart => card.copyWith(radius: 26);
 
   GlassStyle primaryButton({double glow = 0.38}) => GlassStyle(
     radius: 28,
@@ -422,19 +498,38 @@ class GlassSet {
     ],
   );
 
-  static GlassStyle _chartBarSelected() => GlassStyle(
-    radius: 12,
-    color: AppColors.accent,
-    borderColor: _white(0),
-    borderWidth: 0,
+  static GlassStyle _map(
+    Color color,
+    Color border,
+    double rim,
+    Color shadow, {
+    required bool folded,
+  }) => GlassStyle(
+    radius: 26,
+    color: color,
+    blur: 30,
+    saturation: 2,
+    borderColor: border,
     shadows: [
-      CssShadow(
-        dy: 6,
-        blur: 16,
-        color: AppColors.accent.withValues(alpha: 0.35),
-      ),
+      _rim(rim),
+      CssShadow(dy: folded ? 16 : 8, blur: folded ? 32 : 24, color: shadow),
     ],
   );
+
+  static GlassStyle _tip(Color color) => GlassStyle(
+    radius: 12,
+    color: color,
+    blur: 20,
+    saturation: 1.8,
+    borderWidth: 0,
+    shadows: [
+      CssShadow(dy: 10, blur: 24, color: _black(0.25)),
+      CssShadow.inset(dy: 1, color: _white(0.18)),
+    ],
+  );
+
+  static GlassStyle _emptyDay(Color color) =>
+      GlassStyle(radius: 22, color: color, blur: 24, saturation: 1.8);
 
   static GlassStyle _daySelected() => GlassStyle(
     radius: 20,
@@ -573,13 +668,6 @@ class GlassSet {
     ),
     field: _field(_white(0.7), _white(0.95), 1, _navy(0.06)),
     fieldFocused: _fieldFocused(_white(0.7), 0.14),
-    chartBar: GlassStyle(
-      radius: 12,
-      color: _blue(0.28),
-      borderColor: _white(0.7),
-      shadows: [CssShadow(dy: 6, blur: 16, color: _blue(0))],
-    ),
-    chartBarSelected: _chartBarSelected(),
     daySelected: _daySelected(),
     thoughtsCard: GlassStyle(
       radius: 28,
@@ -715,6 +803,10 @@ class GlassSet {
         CssShadow(dy: 4, blur: 14, color: _navy(0.06)),
       ],
     ),
+    map: _map(_white(0.7), _white(0.85), 0.88, _navy(0.14), folded: false),
+    mapFolded: _map(_white(0.7), _white(0.85), 0.88, _navy(0.14), folded: true),
+    tip: _tip(const Color.fromRGBO(28, 28, 30, 0.86)),
+    emptyDay: _emptyDay(_white(0.42)),
     primaryBorder: 0.45,
     primaryRim: 0.55,
   );
@@ -725,6 +817,7 @@ class GlassSet {
     const pop = Color.fromRGBO(44, 46, 58, 0.82);
     const chip = Color.fromRGBO(58, 60, 74, 0.6);
     const fieldColor = Color.fromRGBO(58, 60, 74, 0.55);
+    const mapColor = Color.fromRGBO(36, 38, 50, 0.72);
     return GlassSet._(
       menuButton: GlassStyle(
         radius: 22,
@@ -816,13 +909,6 @@ class GlassSet {
       ),
       field: _field(fieldColor, _white(0.12), 0.10, _black(0.3)),
       fieldFocused: _fieldFocused(fieldColor, 0.18),
-      chartBar: GlassStyle(
-        radius: 12,
-        color: _blue(0.32),
-        borderColor: _white(0.10),
-        shadows: [CssShadow(dy: 6, blur: 16, color: _blue(0))],
-      ),
-      chartBarSelected: _chartBarSelected(),
       daySelected: _daySelected(),
       thoughtsCard: GlassStyle(
         radius: 28,
@@ -958,6 +1044,10 @@ class GlassSet {
           CssShadow(dy: 4, blur: 14, color: _black(0.3)),
         ],
       ),
+      map: _map(mapColor, _white(0.16), 0.10, _black(0.5), folded: false),
+      mapFolded: _map(mapColor, _white(0.16), 0.10, _black(0.5), folded: true),
+      tip: _tip(const Color.fromRGBO(245, 245, 247, 0.92)),
+      emptyDay: _emptyDay(glass),
       primaryBorder: 0.35,
       primaryRim: 0.5,
     );

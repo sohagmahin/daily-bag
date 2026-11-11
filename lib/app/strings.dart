@@ -33,8 +33,19 @@ class Strings {
     required this.holdToRead,
     required this.holdToAdd,
     required this.noExpenses,
-    required this.recentSpending,
-    required this.spendingChart,
+    required this.spendingMap,
+    required this.dailySpending,
+    required this.less,
+    required this.more,
+    required this.noSpending,
+    required this.lastThreeWeeks,
+    required this.showFullMap,
+    required this.showingOneDay,
+    required this.showAllDays,
+    required this.nothingThisDay,
+    required this.weekdaysAbbr,
+    required this.monthsAbbr,
+    required this.levelNames,
     required this.fillTheBag,
     required this.total,
     required this.showTotal,
@@ -105,8 +116,23 @@ class Strings {
   final String holdToRead;
   final String holdToAdd;
   final String noExpenses;
-  final String recentSpending;
-  final String spendingChart;
+  final String spendingMap;
+  final String dailySpending;
+  final String less;
+  final String more;
+  final String noSpending;
+  final String lastThreeWeeks;
+  final String showFullMap;
+  final String showingOneDay;
+  final String showAllDays;
+  final String nothingThisDay;
+
+  /// Sunday first, for the spending map: `Fri, 20 Feb`.
+  final List<String> weekdaysAbbr;
+  final List<String> monthsAbbr;
+
+  /// How heavy a day was, by its shade on the spending map.
+  final List<String> levelNames;
   final String fillTheBag;
   final String total;
   final String showTotal;
@@ -181,6 +207,10 @@ class Strings {
       ? 'বাজার নোট, আরও ${digits(n)}টি জিনিস কেনা বাকি'
       : 'Bazar Note, ${items(n)} left to buy';
 
+  /// The spending map's footnote: `Last 16 weeks · ৳5,470`.
+  String lastWeeks(String money) =>
+      _isBn ? '${digits(16)} সপ্তাহ · $money' : 'Last 16 weeks · $money';
+
   String hideTotal(String amount) =>
       _isBn ? 'মোট লুকান: $amount' : 'Hide total: $amount';
 
@@ -247,8 +277,32 @@ class Strings {
     holdToRead: 'Hold to read thoughts',
     holdToAdd: 'Hold to add thoughts',
     noExpenses: 'No expenses yet',
-    recentSpending: 'Recent spending',
-    spendingChart: 'Spending chart',
+    spendingMap: 'Spending map',
+    dailySpending: 'Daily spending, last 16 weeks',
+    less: 'Less',
+    more: 'More',
+    noSpending: 'No spending',
+    lastThreeWeeks: 'Last 3 weeks',
+    showFullMap: 'Show the full spending map',
+    showingOneDay: 'Showing one day',
+    showAllDays: 'Show all days',
+    nothingThisDay: 'Nothing in the bag this day',
+    weekdaysAbbr: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    monthsAbbr: [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ],
+    levelNames: ['Empty', 'Light', 'Moderate', 'Busy', 'Heavy'],
     fillTheBag: 'Fill the bag',
     total: 'Total',
     showTotal: 'Show total expenses',
@@ -320,8 +374,32 @@ class Strings {
     holdToRead: 'ভাবনা দেখতে চেপে ধরুন',
     holdToAdd: 'ভাবনা লিখতে চেপে ধরুন',
     noExpenses: 'এখনো কোনো খরচ নেই',
-    recentSpending: 'সাম্প্রতিক খরচ',
-    spendingChart: 'খরচের চার্ট',
+    spendingMap: 'খরচের ম্যাপ',
+    dailySpending: 'গত ১৬ সপ্তাহের দৈনিক খরচ',
+    less: 'কম',
+    more: 'বেশি',
+    noSpending: 'কোনো খরচ নেই',
+    lastThreeWeeks: 'গত ৩ সপ্তাহ',
+    showFullMap: 'পুরো খরচের ম্যাপ দেখুন',
+    showingOneDay: 'একটি দিনের খরচ',
+    showAllDays: 'সব দিন দেখুন',
+    nothingThisDay: 'এই দিনে ব্যাগ খালি ছিল',
+    weekdaysAbbr: ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি'],
+    monthsAbbr: [
+      'জানু',
+      'ফেব্রু',
+      'মার্চ',
+      'এপ্রি',
+      'মে',
+      'জুন',
+      'জুলা',
+      'আগ',
+      'সেপ্টে',
+      'অক্টো',
+      'নভে',
+      'ডিসে',
+    ],
+    levelNames: ['খরচ নেই', 'হালকা', 'মাঝারি', 'ব্যস্ত', 'ভারী'],
     fillTheBag: 'ব্যাগ ভরুন',
     total: 'মোট',
     showTotal: 'মোট খরচ দেখুন',

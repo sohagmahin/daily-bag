@@ -76,9 +76,6 @@ class ExpenseStore extends ChangeNotifier {
     ],
   );
 
-  /// Most bars the chart keeps; older ones are left to the day list.
-  static const chartLength = 30;
-
   final ExpenseDatabase? _database;
   final _days = SplayTreeMap<DateTime, DayNote>();
   GroupMode _mode;
@@ -102,19 +99,8 @@ class ExpenseStore extends ChangeNotifier {
     return _mode == GroupMode.day ? monthTitle(month) : digits(month.year);
   }
 
+  /// Every day, oldest first.
   List<DayNote> get days => _days.values.toList();
-
-  /// Everything ever spent: the chart header's "Total".
-  double get grandTotal => _days.values.fold(0, (sum, d) => sum + d.total);
-
-  List<DayNote> get daysInFocusedMonth {
-    final month = focusedMonth;
-    if (month == null) return const [];
-    return [
-      for (final d in _days.values)
-        if (isSameMonth(d.date, month)) d,
-    ];
-  }
 
   List<MonthSummary> get months {
     final grouped = SplayTreeMap<DateTime, List<DayNote>>();
@@ -125,38 +111,6 @@ class ExpenseStore extends ChangeNotifier {
   }
 
   DayNote? dayFor(DateTime date) => _days[dateOnly(date)];
-
-  /// The last [chartLength] days (or months) with spending, oldest first.
-  List<ChartBar> get chartBars {
-    if (_mode == GroupMode.month) {
-      final all = months.where((m) => m.total > 0).toList();
-      final focused = focusedMonth;
-      return [
-        for (final m in all.skip(_tailStart(all.length)))
-          ChartBar(
-            key: m.month,
-            label: shortMonthName(m.month),
-            semanticLabel: '${monthTitle(m.month)}, ${formatMoney(m.total)}',
-            value: m.total,
-            selected: focused != null && isSameMonth(m.month, focused),
-          ),
-      ];
-    }
-    // A day kept only for its thoughts has nothing to chart.
-    final all = _days.values.where((d) => d.total > 0).toList();
-    return [
-      for (final d in all.skip(_tailStart(all.length)))
-        ChartBar(
-          key: d.date,
-          label: digits(twoDigits(d.date.day)),
-          semanticLabel: '${shortDay(d.date)}, ${formatMoney(d.total)}',
-          value: d.total,
-          selected: _selectedDay != null && isSameDay(d.date, _selectedDay!),
-        ),
-    ];
-  }
-
-  int _tailStart(int length) => length > chartLength ? length - chartLength : 0;
 
   void setMode(GroupMode mode) {
     if (_mode == mode) return;
@@ -182,22 +136,6 @@ class ExpenseStore extends ChangeNotifier {
     if (_selectedMonth == m) return;
     _selectedMonth = m;
     notifyListeners();
-  }
-
-  /// Moves the day list to the previous/next month that has entries.
-  /// Returns false when there is nowhere to go.
-  bool shiftMonth(int delta) {
-    final current = focusedMonth;
-    if (current == null) return false;
-    final all = months.map((m) => m.month).toList();
-    final index = all.indexWhere((m) => isSameMonth(m, current));
-    final next = index + delta;
-    if (index < 0 || next < 0 || next >= all.length) return false;
-    final target = all[next];
-    _selectedDay = _days.keys.lastWhere((d) => isSameMonth(d, target));
-    _selectedMonth = target;
-    notifyListeners();
-    return true;
   }
 
   /// Saves a Bazar Diary entry and opens its day.

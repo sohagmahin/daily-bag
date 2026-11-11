@@ -58,6 +58,19 @@ abstract final class Motion {
     duration: Duration(milliseconds: 800),
   );
 
+  /// The spending map folding open or shut: the list glides to the
+  /// nearest rest point on the design's ease-out.
+  static const fold = Cubic(0.22, 1, 0.36, 1);
+  static const foldDuration = Duration(milliseconds: 450);
+
+  /// CSS `cubic-bezier(0.34, 1.56, 0.64, 1)`: a quick pop past the target.
+  static const pop = Cubic(0.34, 1.56, 0.64, 1);
+
+  /// The day island opening (`cubic-bezier(0.34, 1.35, 0.64, 1)`), and its
+  /// lift and contents settling (`cubic-bezier(0.34, 1.4, 0.64, 1)`).
+  static const islandGrow = Cubic(0.34, 1.35, 0.64, 1);
+  static const islandPop = Cubic(0.34, 1.4, 0.64, 1);
+
   /// Used when an overlay collapses back into the control that opened it.
   static const dismiss = Curves.easeInCubic;
   static const dismissDuration = Duration(milliseconds: 320);
