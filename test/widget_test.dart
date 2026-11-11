@@ -7,7 +7,8 @@ import 'package:little_expense/app/haptics.dart';
 import 'package:little_expense/app/tokens.dart';
 import 'package:little_expense/main.dart';
 import 'package:little_expense/models/expense.dart';
-import 'package:little_expense/screens/home/spend_chart.dart';
+import 'package:little_expense/screens/home/day_island.dart';
+import 'package:little_expense/screens/home/spending_map.dart';
 import 'package:little_expense/state/bazar_store.dart';
 import 'package:little_expense/state/expense_draft.dart';
 import 'package:little_expense/state/expense_store.dart';
@@ -26,15 +27,39 @@ void main() {
       expect(store.eyebrow, 'February 2026');
       expect(store.dayFor(DateTime(2026, 2, 20))!.total, 1220);
       expect(store.dayFor(DateTime(2026, 2, 20))!.hasThoughts, isTrue);
-      expect(store.grandTotal, 5470);
-      expect(store.chartBars.map((b) => b.label), [
-        '12',
-        '13',
-        '20',
-        '26',
-        '02',
+      expect(store.selectedDay, DateTime(2026, 2, 20));
+    });
+
+    test('the spending map covers 16 weeks up to today', () {
+      final map = SpendingWindow.of(ExpenseStore.demo(), DateTime(2026, 3, 2));
+      expect(map.days, hasLength(112));
+      expect(map.days.first.date, DateTime(2025, 11, 16), reason: 'a Sunday');
+      expect(map.todayIndex, 106, reason: 'Monday of the last week');
+      expect(map.days[map.todayIndex].isToday, isTrue);
+      expect(map.days.skip(107).every((d) => d.isFuture), isTrue);
+      expect(map.total, 5470);
+      int level(int month, int day) =>
+          map.days[map.indexOf(DateTime(2026, month, day))!].level;
+      // As the design shades them.
+      expect(level(2, 12), 4);
+      expect(level(2, 13), 3);
+      expect(level(2, 20), 4);
+      expect(level(2, 26), 2);
+      expect(level(3, 2), 3);
+      expect(level(2, 21), 0);
+      expect(map.indexOf(DateTime(2026, 3, 3)), isNull, reason: 'future');
+      expect(map.indexOf(DateTime(2025, 11, 15)), isNull, reason: 'too old');
+      expect([for (var c = 0; c < 16; c++) map.monthLabel(c)].nonNulls, [
+        'Nov',
+        'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
       ]);
-      expect(store.chartBars.singleWhere((b) => b.selected).value, 1220);
+      expect(
+        map.days[map.indexOf(DateTime(2026, 2, 20))!].label,
+        'Fri, 20 Feb',
+      );
     });
 
     test('saving a new day opens it', () {
@@ -46,9 +71,8 @@ void main() {
         );
       expect(store.selectedDay, DateTime(2026, 3, 5));
       expect(store.eyebrow, 'March 2026');
-      expect(store.chartBars.last.value, 40);
+      expect(store.days.last.total, 40);
       expect(store.dayFor(DateTime(2026, 3, 5))!.thoughts, 'Quick stop.');
-      expect(store.grandTotal, 5510);
     });
 
     test('editing can move a day onto another, keeping both', () {
@@ -75,7 +99,7 @@ void main() {
       expect(store.dayFor(DateTime(2026, 2, 20)), isNull);
     });
 
-    test('a day can keep only its thoughts, off the chart', () {
+    test('a day can keep only its thoughts, unshaded on the map', () {
       final store = ExpenseStore.demo()
         ..saveDay(
           date: DateTime(2026, 3, 9),
@@ -83,7 +107,8 @@ void main() {
           thoughts: 'Window shopping.',
         );
       expect(store.dayFor(DateTime(2026, 3, 9))!.total, 0);
-      expect(store.chartBars.map((b) => b.label), isNot(contains('09')));
+      final map = SpendingWindow.of(store, DateTime(2026, 3, 9));
+      expect(map.days[map.todayIndex].level, 0);
     });
 
     test('deleting thoughts keeps the items', () {
@@ -93,19 +118,25 @@ void main() {
       expect(day.items, hasLength(3));
     });
 
-    test('month mode groups and charts by month', () {
+    test('month mode groups by month', () {
       final store = ExpenseStore.demo()..setMode(GroupMode.month);
       expect(store.months.map((m) => m.total), [4520, 950]);
       expect(store.eyebrow, '2026');
-      expect(store.chartBars.map((b) => b.label), ['Feb', 'Mar']);
     });
 
-    test('the chart keeps the last 30 days with spending', () {
-      final store = ExpenseStore(days: dailyDays(35));
-      expect(store.chartBars, hasLength(30));
-      expect(store.chartBars.first.key, DateTime(2026, 1, 6));
-      expect(store.chartBars.last.key, DateTime(2026, 2, 4));
-      expect(store.chartBars.last.selected, isTrue);
+    test('the map shades by quarters of its busiest day', () {
+      final map = SpendingWindow.of(
+        ExpenseStore(days: dailyDays(35)),
+        DateTime(2026, 2, 4),
+      );
+      // 10 → 44 a day: the busiest quarter is level 4, the quietest 1.
+      expect(map.days[map.todayIndex].amount, 44);
+      expect(map.days[map.todayIndex].level, 4);
+      expect(map.days[map.indexOf(DateTime(2026, 1, 1))!].level, 1);
+      expect(
+        map.total,
+        [for (var i = 0; i < 35; i++) 10.0 + i].reduce((a, b) => a + b),
+      );
     });
   });
 
@@ -184,6 +215,9 @@ void main() {
         ..physicalSize = const Size(390, 844)
         ..devicePixelRatio = 1;
       addTearDown(tester.view.reset);
+      // The design's "today": the map ends on Monday 2 March 2026.
+      SpendingMap.clock = () => DateTime(2026, 3, 2);
+      addTearDown(() => SpendingMap.clock = DateTime.now);
 
       store ??= ExpenseStore.demo();
       await tester.pumpWidget(
@@ -215,10 +249,10 @@ void main() {
       expect(find.text('Beef'), findsOneWidget);
       expect(find.text('Soybean oil'), findsNothing);
 
-      await tester.tap(find.text('12 Feb 2026'));
+      await tester.tap(find.text('26 Feb 2026'));
       await settle(tester);
-      expect(store.selectedDay, DateTime(2026, 2, 12));
-      expect(find.text('Soybean oil'), findsOneWidget);
+      expect(store.selectedDay, DateTime(2026, 2, 26));
+      expect(find.text('Fish'), findsOneWidget);
       expect(find.text('Beef'), findsNothing);
     });
 
@@ -249,28 +283,113 @@ void main() {
       expect(store.dayFor(DateTime(2026, 2, 20))!.items, hasLength(3));
     });
 
-    testWidgets('the chart opens on the newest bar and scrolls back', (
+    /// The middle of a day's square on the spending map.
+    Offset mapDay(WidgetTester tester, int week, int weekday) =>
+        tester.getTopLeft(
+          find.bySemanticsLabel('Daily spending, last 16 weeks'),
+        ) +
+        Offset(week * 18 + 7.0, weekday * 18 + 7.0);
+
+    testWidgets('the list runs newest first under the map', (tester) async {
+      await pumpHome(tester);
+      final days = [
+        '2 Mar 2026',
+        '26 Feb 2026',
+        '20 Feb 2026',
+        '13 Feb 2026',
+        '12 Feb 2026',
+      ].map((d) => tester.getTopLeft(find.text(d)).dy).toList();
+      expect(days, orderedEquals([...days]..sort()));
+      expect(
+        days.first,
+        greaterThan(tester.getBottomLeft(find.byType(SpendingMap)).dy),
+      );
+      expect(find.text('Spending map'), findsOneWidget);
+      expect(find.text('Last 16 weeks · ৳5,470'), findsOneWidget);
+    });
+
+    testWidgets('scrubbing the map reads each day out in the island', (
       tester,
     ) async {
-      final store = await pumpHome(tester, ExpenseStore(days: dailyDays(35)));
-      bool shown(String label) => tester
-          .getRect(find.byType(SpendChart))
-          .contains(tester.getCenter(find.text(label)));
+      await pumpHome(tester);
+      Finder inIsland(String text) => find.descendant(
+        of: find.byType(DayIsland),
+        matching: find.text(text),
+      );
+      expect(inIsland('Friday, 13 Feb'), findsNothing);
 
-      expect(shown('04'), isTrue, reason: '4 Feb, the newest');
-      expect(shown('06'), isFalse, reason: '6 Jan, the oldest kept');
+      // Week 12 is 8–14 Feb; Friday is the sixth row.
+      final gesture = await tester.startGesture(mapDay(tester, 12, 5));
+      await settle(tester);
+      expect(inIsland('৳1,060'), findsOneWidget);
+      expect(inIsland('Friday, 13 Feb'), findsOneWidget);
+      expect(inIsland('Busy'), findsOneWidget);
+      // The pill keeps the (hidden) total.
+      expect(
+        find.descendant(
+          of: find.byType(SpendingMap),
+          matching: find.text('•••••'),
+        ),
+        findsOneWidget,
+      );
 
-      await tester.drag(find.byType(SpendChart), const Offset(2000, 0));
+      await gesture.moveTo(mapDay(tester, 13, 5));
       await settle(tester);
-      await settle(tester);
-      expect(shown('06'), isTrue);
-      expect(shown('04'), isFalse);
+      expect(inIsland('৳1,220'), findsOneWidget);
+      expect(inIsland('Friday, 20 Feb'), findsOneWidget);
+      expect(inIsland('Heavy'), findsOneWidget);
 
-      // Opening a day elsewhere brings its bar back into view.
-      store.selectDay(DateTime(2026, 2, 3));
+      await gesture.moveTo(mapDay(tester, 13, 6));
+      await settle(tester);
+      expect(inIsland('৳0'), findsOneWidget);
+      expect(inIsland('Empty'), findsOneWidget);
+
+      // Lifting after a scrub picks nothing, and the island folds away.
+      await gesture.up();
+      await settle(tester);
+      expect(inIsland('Saturday, 21 Feb'), findsNothing);
+      expect(find.text('SHOWING ONE DAY'), findsNothing);
+    });
+
+    testWidgets('tapping a day on the map shows just that day', (tester) async {
+      final store = await pumpHome(tester);
+      await tester.tapAt(mapDay(tester, 12, 4)); // Thu 12 Feb
+      await settle(tester);
+      expect(find.text('SHOWING ONE DAY'), findsOneWidget);
+      expect(find.text('Thu, 12 Feb'), findsOneWidget);
+      expect(store.selectedDay, DateTime(2026, 2, 12));
+      expect(find.text('Soybean oil'), findsOneWidget, reason: 'opened');
+      expect(find.text('2 Mar 2026'), findsNothing);
+
+      await tester.tapAt(mapDay(tester, 13, 6)); // Sat 21 Feb
+      await settle(tester);
+      expect(find.text('Nothing in the bag this day'), findsOneWidget);
+      expect(find.text('21 Feb 2026'), findsOneWidget);
+      expect(find.text('12 Feb 2026'), findsNothing);
+
+      await tester.tap(find.bySemanticsLabel('Show all days'));
+      await settle(tester);
+      expect(find.text('SHOWING ONE DAY'), findsNothing);
+      expect(find.text('2 Mar 2026'), findsOneWidget);
+      expect(find.text('Soybean oil'), findsOneWidget);
+    });
+
+    testWidgets('scrolling folds the map into three weeks', (tester) async {
+      await pumpHome(tester);
+      double height() => tester.getSize(find.byType(SpendingMap)).height;
+      expect(height(), closeTo(234, 0.5));
+
+      // Let go part way and it finishes folding by itself.
+      await tester.drag(find.text('26 Feb 2026'), const Offset(0, -100));
       await settle(tester);
       await settle(tester);
-      expect(shown('03'), isTrue);
+      expect(height(), lessThan(80));
+      expect(find.text('Last 3 weeks').hitTestable(), findsOneWidget);
+
+      await tester.tap(find.text('Spending map'));
+      await settle(tester);
+      await settle(tester);
+      expect(height(), closeTo(234, 0.5));
     });
 
     testWidgets('"Fill the bag" starts blank and adds to today', (

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart';
@@ -23,10 +24,12 @@ import '../bazar_note/bazar_note_screen.dart';
 import '../menu/view_menu.dart';
 import '../scan/scan_screen.dart';
 import '../thoughts/thoughts_popover.dart';
-import 'spend_chart.dart';
+import 'day_island.dart';
+import 'spending_map.dart';
 import 'summary_card.dart';
 
-/// "Daily Bag": the day (or month) list, the chart, and "Fill the bag".
+/// "Daily Bag": the spending map over the day (or month) list, and
+/// "Fill the bag".
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -38,27 +41,108 @@ class _HomeScreenState extends State<HomeScreen> {
   // 56px button + 1px border top and bottom, as the design renders it.
   static const _addButtonHeight = 58.0;
 
+  // The list's first card starts under the open map (see [_TopLayout]);
+  // its foot clears "Fill the bag".
+  static const _listInset = 250.0;
+  static const _listFoot = 220.0;
+
+  /// From the list's top edge to just under the folded map.
+  static const _underFoldedMap = 100.0;
+
   final _scroll = ScrollController();
+  final _fold = ValueNotifier<double>(0);
+  final _pillHidden = ValueNotifier<bool>(false);
+  final _hovered = ValueNotifier<MapDay?>(null);
   final _menuButtonKey = GlobalKey();
-  final _cardKeys = <DateTime, GlobalKey>{};
+  final _cardKeys = <String, GlobalKey>{};
+  Timer? _idle;
+  double _lastY = 0;
+
+  /// The day picked on the map; the list shows only it.
+  DateTime? _filter;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
 
   @override
   void dispose() {
+    _idle?.cancel();
     _scroll.dispose();
+    _fold.dispose();
+    _pillHidden.dispose();
+    _hovered.dispose();
     super.dispose();
   }
 
+  /// Day cards appear in the full list and alone under a picked day;
+  /// both can be on screen while one gives way to the other.
+  String get _scope => _filter == null ? 'all' : 'one';
+
   GlobalKey _keyFor(DateTime date) =>
-      _cardKeys.putIfAbsent(date, GlobalKey.new);
+      _cardKeys.putIfAbsent('$_scope ${dateOnly(date)}', GlobalKey.new);
+
+  GlobalKey? _cardKey(DateTime date) => _cardKeys['$_scope ${dateOnly(date)}'];
 
   double get _buttonInset => math.max(MediaQuery.paddingOf(context).bottom, 20);
 
-  void _openMenu() {
+  /// The map folds over the first [SpendingMap.foldRange] of scrolling, and
+  /// the "Total" pill steps aside while the list moves down.
+  void _onScroll() {
+    final y = _scroll.offset;
+    _fold.value = (y / SpendingMap.foldRange).clamp(0.0, 1.0);
+    if (y > _lastY + 1 && y > 8) {
+      _pillHidden.value = true;
+    } else if (y < _lastY - 1) {
+      _pillHidden.value = false;
+    }
+    _lastY = y;
+    _idle?.cancel();
+    _idle = Timer(const Duration(milliseconds: 160), () {
+      if (mounted) _pillHidden.value = false;
+    });
+  }
+
+  /// The map rests open or folded, never in between.
+  bool _onScrollEnd(ScrollEndNotification n) {
+    final y = n.metrics.pixels;
+    if (y > 0 && y < SpendingMap.foldRange) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scroll.hasClients) return;
+        final at = _scroll.offset;
+        if (at > 0 && at < SpendingMap.foldRange) {
+          _glideTo(at < SpendingMap.foldRange / 2 ? 0 : SpendingMap.foldRange);
+        }
+      });
+    }
+    return false;
+  }
+
+  void _glideTo(double offset) {
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(
+      offset,
+      duration: Motion.foldDuration,
+      curve: Motion.fold,
+    );
+  }
+
+  void _toggleFold() => _glideTo(_fold.value > 0.5 ? 0 : SpendingMap.foldRange);
+
+  Future<void> _openMenu() async {
     final box = _menuButtonKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
-    Navigator.of(
+    final store = context.read<ExpenseStore>();
+    final mode = store.mode;
+    await Navigator.of(
       context,
     ).push(ViewMenu.route(box.localToGlobal(Offset.zero) & box.size));
+    // A new grouping shows the whole list again.
+    if (mounted && store.mode != mode && _filter != null) {
+      setState(() => _filter = null);
+    }
   }
 
   /// Opens the Bazar Diary: blank for a new entry (saved items are added to
@@ -74,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
         focusThoughts: focusThoughts,
       ),
     );
-    if (saved != null) _reveal(saved);
+    if (saved != null) _show(saved);
   }
 
   /// Opens "Scan to fill"; shows the day the scanned items went into.
@@ -82,17 +166,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final saved = await Navigator.of(
       context,
     ).push(ScanScreen.route(onTypeInstead: _openDiary));
-    if (saved != null) _reveal(saved);
+    if (saved != null) _show(saved);
   }
 
   /// Opens the Bazar Note; shows the day bought items were moved to.
   Future<void> _openBazar() async {
     final moved = await Navigator.of(context).push(BazarNoteScreen.route());
-    if (moved != null) _reveal(moved);
+    if (moved != null) _show(moved);
   }
 
   Future<void> _openThoughts(DayNote day) async {
-    final box = _cardKeys[day.date]?.currentContext?.findRenderObject();
+    final box = _cardKey(day.date)?.currentContext?.findRenderObject();
     if (box is! RenderBox) return;
     final action = await Navigator.of(context).push(
       ThoughtsPopover.route(
@@ -105,39 +189,57 @@ class _HomeScreenState extends State<HomeScreen> {
     if (latest != null) _openDiary(existing: latest, focusThoughts: true);
   }
 
-  void _selectFromChart(DateTime key) {
+  /// A day picked on the map opens alone under it; null shows every day.
+  void _selectFromMap(DateTime? date) {
     final store = context.read<ExpenseStore>();
-    if (store.mode == GroupMode.month) {
-      store.selectMonth(key);
-    } else {
-      store.selectDay(key);
-      _reveal(key);
+    setState(() => _filter = date);
+    if (date == null) {
+      final open = store.selectedDay;
+      if (open != null) _reveal(open);
+      return;
+    }
+    if (store.dayFor(date) != null) store.selectDay(date);
+    // The list shrinks to one day: bring it up under the map.
+    if (_scroll.hasClients && _scroll.offset > SpendingMap.foldRange) {
+      _glideTo(SpendingMap.foldRange);
     }
   }
 
-  /// Scrolls just enough to show a day's card once it has opened.
+  /// Shows a day that was just filled, leaving any other picked day.
+  void _show(DateTime date) {
+    final filter = _filter;
+    if (filter != null && !isSameDay(filter, date)) {
+      setState(() => _filter = null);
+    }
+    _reveal(date);
+  }
+
+  /// Scrolls just enough to show a day's card once it has opened: below
+  /// the (folded) map at the top, above "Fill the bag" at the bottom.
   void _reveal(DateTime date) {
     Future.delayed(const Duration(milliseconds: 360), () {
       if (!mounted || !_scroll.hasClients) return;
-      final box = _cardKeys[dateOnly(date)]?.currentContext?.findRenderObject();
+      final box = _cardKey(date)?.currentContext?.findRenderObject();
       if (box == null) return;
       final viewport = RenderAbstractViewport.of(box);
       final position = _scroll.position;
-      final top =
-          viewport.getOffsetToReveal(box, 0).offset -
-          (MediaQuery.paddingOf(context).top + 15);
+      final top = viewport.getOffsetToReveal(box, 0).offset - _underFoldedMap;
       final bottom =
           viewport.getOffsetToReveal(box, 1).offset +
           _buttonInset +
           _addButtonHeight +
           16;
-      final double target;
+      double target;
       if (position.pixels > top) {
         target = top;
       } else if (position.pixels < bottom) {
         target = bottom;
       } else {
         return;
+      }
+      // Room is made by folding the map, not by leaving it half open.
+      if (target > 0 && target < SpendingMap.foldRange) {
+        target = SpendingMap.foldRange;
       }
       _scroll.animateTo(
         target.clamp(position.minScrollExtent, position.maxScrollExtent),
@@ -158,72 +260,71 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           const Positioned.fill(child: LiquidBackground()),
           Positioned.fill(
-            child: SingleChildScrollView(
-              controller: _scroll,
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              padding: EdgeInsets.fromLTRB(
-                16,
-                safeTop + 15,
-                16,
-                buttonInset + _addButtonHeight + 28,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Entrance(
+            child: CustomMultiChildLayout(
+              delegate: _TopLayout(safeTop),
+              children: [
+                LayoutId(
+                  id: _Slot.list,
+                  child: NotificationListener<ScrollEndNotification>(
+                    onNotification: _onScrollEnd,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => SingleChildScrollView(
+                        controller: _scroll,
+                        physics: const BouncingScrollPhysics(
+                          parent: AlwaysScrollableScrollPhysics(),
+                        ),
+                        child: ConstrainedBox(
+                          // However short the list, there is room to fold
+                          // the map.
+                          constraints: BoxConstraints(
+                            minHeight:
+                                constraints.maxHeight + SpendingMap.foldRange,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              16,
+                              _listInset,
+                              16,
+                              _listFoot,
+                            ),
+                            child: _GroupList(
+                              keyFor: _keyFor,
+                              onThoughts: _openThoughts,
+                              onReveal: _reveal,
+                              filter: _filter,
+                              onShowAll: () => _selectFromMap(null),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                LayoutId(
+                  id: _Slot.header,
+                  child: Entrance(
                     child: _Header(
                       menuButtonKey: _menuButtonKey,
                       onMenu: _openMenu,
                       onBazar: _openBazar,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  _GroupList(
-                    keyFor: _keyFor,
-                    onThoughts: _openThoughts,
-                    onReveal: _reveal,
-                  ),
-                  const SizedBox(height: 14),
-                  Entrance(
-                    delay: const Duration(milliseconds: 260),
-                    child: _ChartSection(onSelect: _selectFromChart),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Content scrolling under the status bar fades into the canvas.
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: safeTop + 20,
-            child: IgnorePointer(
-              child: AnimatedBuilder(
-                animation: _scroll,
-                builder: (context, _) {
-                  final shown = _scroll.hasClients
-                      ? (_scroll.offset / 24).clamp(0.0, 1.0)
-                      : 0.0;
-                  return Opacity(
-                    opacity: shown,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            context.palette.background.withValues(alpha: 0.85),
-                            context.palette.background.withValues(alpha: 0),
-                          ],
-                        ),
-                      ),
+                ),
+                LayoutId(
+                  id: _Slot.map,
+                  child: Entrance(
+                    delay: const Duration(milliseconds: 40),
+                    child: SpendingMap(
+                      fold: _fold,
+                      pillHidden: _pillHidden,
+                      selected: _filter,
+                      onSelect: _selectFromMap,
+                      onToggleFold: _toggleFold,
+                      hovered: _hovered,
                     ),
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
           Positioned(
@@ -264,10 +365,62 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+          // Over everything, floating just under the status bar.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: DayIsland(day: _hovered),
+          ),
         ],
       ),
     );
   }
+}
+
+enum _Slot { list, header, map }
+
+/// Places the header, the spending map over the list, and the list.
+///
+/// Below the safe area (47px on the design's canvas) the header sits at
+/// 62, the map at 134 and the list's top edge 8px above the map, at 126.
+/// A header grown by large text pushes the map and list down with it.
+class _TopLayout extends MultiChildLayoutDelegate {
+  _TopLayout(this.safeTop);
+
+  final double safeTop;
+
+  static const _headerTop = 15.0;
+  static const _mapTop = 87.0;
+  static const _mapGap = 13.0;
+  static const _listAboveMap = 8.0;
+
+  @override
+  void performLayout(Size size) {
+    final width = size.width - 32;
+    final header = layoutChild(
+      _Slot.header,
+      BoxConstraints(minWidth: width, maxWidth: width),
+    );
+    positionChild(_Slot.header, Offset(16, safeTop + _headerTop));
+
+    final mapTop =
+        safeTop + math.max(_mapTop, _headerTop + header.height + _mapGap);
+    layoutChild(_Slot.map, BoxConstraints(minWidth: width, maxWidth: width));
+    positionChild(_Slot.map, Offset(16, mapTop));
+
+    final listTop = mapTop - _listAboveMap;
+    layoutChild(
+      _Slot.list,
+      BoxConstraints.tight(
+        Size(size.width, math.max(0, size.height - listTop)),
+      ),
+    );
+    positionChild(_Slot.list, Offset(0, listTop));
+  }
+
+  @override
+  bool shouldRelayout(_TopLayout oldDelegate) => oldDelegate.safeTop != safeTop;
 }
 
 class _Header extends StatelessWidget {
@@ -430,21 +583,32 @@ class _GroupList extends StatelessWidget {
     required this.keyFor,
     required this.onThoughts,
     required this.onReveal,
+    required this.filter,
+    required this.onShowAll,
   });
 
   final GlobalKey Function(DateTime date) keyFor;
   final ValueChanged<DayNote> onThoughts;
   final ValueChanged<DateTime> onReveal;
+  final DateTime? filter;
+  final VoidCallback onShowAll;
 
+  /// Cards rise in one after another; far down the list they arrive
+  /// together rather than seconds late.
   static Duration _stagger(int index) =>
-      Duration(milliseconds: 60 + 50 * index);
+      Duration(milliseconds: 60 + 50 * math.min(index, 8));
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<ExpenseStore>();
     final byDay = store.mode == GroupMode.day;
+    final filter = this.filter;
 
-    final cards = byDay ? _dayCards(store) : _monthCards(store);
+    final cards = filter != null
+        ? _oneDay(store, filter)
+        : byDay
+        ? _dayCards(store)
+        : _monthCards(store);
     final list = cards.isEmpty
         ? const _EmptyCard()
         : Column(
@@ -452,50 +616,45 @@ class _GroupList extends StatelessWidget {
             children: cards,
           );
 
-    return GestureDetector(
-      // Swipe sideways to move between months.
-      onHorizontalDragEnd: byDay
-          ? (d) {
-              final v = d.primaryVelocity ?? 0;
-              if (v.abs() < 250) return;
-              if (store.shiftMonth(v < 0 ? 1 : -1)) {
-                Haptics.play(HapticKind.light);
-              }
-            }
-          : null,
-      child: AnimatedSwitcher(
-        duration: Motion.smooth.duration,
-        switchInCurve: Motion.smooth,
-        switchOutCurve: Curves.easeOut,
-        layoutBuilder: (current, previous) => Stack(
-          alignment: Alignment.topCenter,
-          children: [...previous, ?current],
+    return AnimatedSwitcher(
+      duration: Motion.smooth.duration,
+      switchInCurve: Motion.smooth,
+      switchOutCurve: Curves.easeOut,
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.topCenter,
+        children: [...previous, ?current],
+      ),
+      transitionBuilder: (child, animation) => AnimatedBuilder(
+        animation: animation,
+        child: child,
+        builder: (context, child) {
+          final t = animation.value;
+          return GlassFade(
+            opacity: GlassFade.of(context) * t.clamp(0.0, 1.0),
+            child: Transform.scale(
+              scale: 0.97 + 0.03 * t,
+              alignment: Alignment.topCenter,
+              child: child,
+            ),
+          );
+        },
+      ),
+      child: KeyedSubtree(
+        key: ValueKey(
+          filter != null
+              ? 'one ${dateOnly(filter)}'
+              : byDay
+              ? 'days'
+              : 'months',
         ),
-        transitionBuilder: (child, animation) => AnimatedBuilder(
-          animation: animation,
-          child: child,
-          builder: (context, child) {
-            final t = animation.value;
-            return GlassFade(
-              opacity: GlassFade.of(context) * t.clamp(0.0, 1.0),
-              child: Transform.scale(
-                scale: 0.97 + 0.03 * t,
-                alignment: Alignment.topCenter,
-                child: child,
-              ),
-            );
-          },
-        ),
-        child: KeyedSubtree(
-          key: ValueKey(byDay ? 'day-${store.focusedMonth}' : 'month'),
-          child: list,
-        ),
+        child: list,
       ),
     );
   }
 
+  /// Newest first, the open day expanded.
   List<Widget> _dayCards(ExpenseStore store) {
-    final days = store.daysInFocusedMonth;
+    final days = store.days.reversed.toList();
     final selected = store.selectedDay;
     return [
       for (var i = 0; i < days.length; i++)
@@ -511,6 +670,29 @@ class _GroupList extends StatelessWidget {
             ),
           ),
         ),
+    ];
+  }
+
+  /// The day picked on the map, under "Showing one day".
+  List<Widget> _oneDay(ExpenseStore store, DateTime date) {
+    final day = store.dayFor(date);
+    final selected = store.selectedDay;
+    return [
+      Entrance(
+        delay: _stagger(0),
+        child: _OneDayHeader(date: date, onShowAll: onShowAll),
+      ),
+      const SizedBox(height: 10),
+      Entrance(
+        delay: _stagger(1),
+        child: day == null
+            ? _NothingThisDay(date: date)
+            : _dayCard(
+                store,
+                day,
+                selected != null && isSameDay(day.date, selected),
+              ),
+      ),
     ];
   }
 
@@ -538,8 +720,9 @@ class _GroupList extends StatelessWidget {
     );
   }
 
+  /// Newest first, the focused month expanded.
   List<Widget> _monthCards(ExpenseStore store) {
-    final months = store.months;
+    final months = store.months.reversed.toList();
     final focused = store.focusedMonth;
     return [
       for (var i = 0; i < months.length; i++)
@@ -604,46 +787,167 @@ class _EmptyCard extends StatelessWidget {
   }
 }
 
-class _ChartSection extends StatelessWidget {
-  const _ChartSection({required this.onSelect});
+/// "SHOWING ONE DAY", and the picked day as a chip that clears it.
+class _OneDayHeader extends StatelessWidget {
+  const _OneDayHeader({required this.date, required this.onShowAll});
 
-  final ValueChanged<DateTime> onSelect;
+  final DateTime date;
+  final VoidCallback onShowAll;
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<ExpenseStore>();
-    final bars = store.chartBars;
-    if (bars.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        FadeWithGlass(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Flexible(
-                  child: Text(
-                    tr.recentSpending,
-                    style: AppText.title3,
-                    maxLines: 1,
+    final palette = context.palette;
+    return SizedBox(
+      height: 36,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: FadeWithGlass(
+                child: Text(
+                  tr.showingOneDay.toUpperCase(),
+                  style: palette.eyebrow,
+                  maxLines: 1,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            LiquidPressable(
+              onTap: onShowAll,
+              haptic: HapticKind.selection,
+              pressedScale: 0.94,
+              borderRadius: 16,
+              semanticLabel: tr.showAllDays,
+              child: FadeWithGlass(
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
+                  decoration: BoxDecoration(
+                    color: palette.accentWash,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ExcludeSemantics(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          mapDayLabel(date),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: palette.accentText,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: palette.quietFill,
+                            shape: BoxShape.circle,
+                          ),
+                          child: SizedBox.square(
+                            dimension: 18,
+                            child: Center(
+                              child: LineIcon(
+                                LineGlyph.close,
+                                size: 10,
+                                strokeWidth: 3.4,
+                                color: palette.accentText,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                _TotalToggle(total: store.grandTotal),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
-        const SizedBox(height: 10),
-        SpendChart(bars: bars, onSelect: onSelect),
-      ],
+      ),
     );
   }
+}
+
+/// A picked day with nothing in the bag.
+class _NothingThisDay extends StatelessWidget {
+  const _NothingThisDay({required this.date});
+
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return CustomPaint(
+      foregroundPainter: _DashedRim(
+        color: palette.separator.withValues(
+          alpha: palette.separator.a * GlassFade.of(context).clamp(0.0, 1.0),
+        ),
+        radius: palette.glass.emptyDay.radius,
+      ),
+      child: LiquidBox(
+        style: palette.glass.emptyDay,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Opacity(
+              opacity: 0.5,
+              child: const LineIcon(LineGlyph.bag, size: 28, strokeWidth: 1.8),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              tr.nothingThisDay,
+              textAlign: TextAlign.center,
+              style: AppText.callout,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              dayTitle(date),
+              textAlign: TextAlign.center,
+              style: palette.footnote,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A CSS `1px dashed` border.
+class _DashedRim extends CustomPainter {
+  _DashedRim({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rim = RRect.fromRectAndRadius(
+      (Offset.zero & size).deflate(0.5),
+      Radius.circular(radius - 0.5),
+    );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (final metric in (Path()..addRRect(rim)).computeMetrics()) {
+      // Dashes as long as the gaps, evened out to close the loop.
+      final count = (metric.length / 6).round();
+      final step = metric.length / count;
+      for (var i = 0; i < count; i++) {
+        canvas.drawPath(
+          metric.extractPath(i * step, i * step + step / 2),
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedRim old) =>
+      old.color != color || old.radius != radius;
 }
 
 class _AddButton extends StatelessWidget {
@@ -701,119 +1005,6 @@ class _ScanButton extends StatelessWidget {
         width: 56,
         height: 56,
         child: const Center(child: LineIcon(LineGlyph.scan, size: 24)),
-      ),
-    );
-  }
-}
-
-/// The chart header's "Total" pill: everything spent, hidden until asked.
-class _TotalToggle extends StatefulWidget {
-  const _TotalToggle({required this.total});
-
-  final double total;
-
-  @override
-  State<_TotalToggle> createState() => _TotalToggleState();
-}
-
-class _TotalToggleState extends State<_TotalToggle> {
-  bool _shown = false;
-
-  static Widget _roll(Widget child, Animation<double> animation) =>
-      FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position: Tween(
-            begin: const Offset(0, 0.45),
-            end: Offset.zero,
-          ).animate(animation),
-          child: child,
-        ),
-      );
-
-  static Widget _stackRight(Widget? current, List<Widget> previous) => Stack(
-    alignment: Alignment.centerRight,
-    children: [...previous, ?current],
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final amount = formatMoney(widget.total);
-    return LiquidPressable(
-      onTap: () => setState(() => _shown = !_shown),
-      haptic: HapticKind.selection,
-      pressedScale: 0.94,
-      borderRadius: 16,
-      semanticLabel: _shown ? tr.hideTotal(amount) : tr.showTotal,
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
-        decoration: BoxDecoration(
-          color: context.palette.quietFill,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: ExcludeSemantics(
-          child: AnimatedSize(
-            duration: Motion.snappy.duration,
-            curve: Motion.snappy,
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  tr.total,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: context.palette.secondaryLabelStrong,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                AnimatedSwitcher(
-                  duration: Motion.snappy.duration,
-                  switchInCurve: Motion.snappy,
-                  switchOutCurve: Curves.easeIn,
-                  transitionBuilder: _roll,
-                  layoutBuilder: _stackRight,
-                  child: _shown
-                      ? Text(
-                          amount,
-                          key: const ValueKey('amount'),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: context.palette.pillLabel,
-                            fontFeatures: AppText.tabular,
-                          ),
-                        )
-                      : Text(
-                          '•••••',
-                          key: ValueKey('hidden'),
-                          style: TextStyle(
-                            fontSize: 13,
-                            letterSpacing: 1,
-                            color: context.palette.chevron,
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 6),
-                AnimatedSwitcher(
-                  duration: Motion.snappy.duration,
-                  transitionBuilder: (child, animation) => ScaleTransition(
-                    scale: animation,
-                    child: FadeTransition(opacity: animation, child: child),
-                  ),
-                  child: LineIcon(
-                    _shown ? LineGlyph.eyeOff : LineGlyph.eye,
-                    key: ValueKey(_shown),
-                    size: 16,
-                    strokeWidth: 2,
-                    color: context.palette.secondaryLabelStrong,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

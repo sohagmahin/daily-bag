@@ -37,23 +37,6 @@ class MonthSummary {
   int get itemCount => days.fold(0, (sum, d) => sum + d.items.length);
 }
 
-@immutable
-class ChartBar {
-  const ChartBar({
-    required this.key,
-    required this.label,
-    required this.semanticLabel,
-    required this.value,
-    required this.selected,
-  });
-
-  final DateTime key;
-  final String label;
-  final String semanticLabel;
-  final double value;
-  final bool selected;
-}
-
 enum GroupMode { day, month }
 
 /// One line on the Bazar Note shopping list. [price] stays null until the
